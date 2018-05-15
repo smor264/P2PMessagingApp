@@ -15,6 +15,13 @@ listen_ip = "0.0.0.0"
 listen_port = 1234
 
 import cherrypy
+from hashlib import sha256
+import json
+import httplib
+from urllib import urlencode
+import urllib2
+from urllib2 import urlopen
+import socket
 
 
 class MainApp(object):
@@ -39,10 +46,16 @@ class MainApp(object):
 
         try:
             Page += "Hello " + cherrypy.session['username'] + "!<br/>"
-            Page += "Here is some bonus text because you've logged in!"
+            Page += "Login successful!"
             Page += "<br/> Additional text from sam."
-        except KeyError:  # There is no username
+            Page += 'Online Users: '
+            userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
+            data = {'username' : cherrypy.session.get('username'), 'password' : cherrypy.session.get('password'), 'enc' : 0 }
+            post = urlencode(data)
+            response = urllib2.urlopen(userListUrl, post)
+            Page += response.read()
 
+        except KeyError:  # There is no username
             Page += "Click here to <a href='login'>login</a>."
         return Page
 
@@ -63,9 +76,13 @@ class MainApp(object):
     @cherrypy.expose
     def signin(self, username=None, password=None):
         """Check their name and password and send them either to the main page, or back to the main login screen."""
-        error = self.authoriseUserLogin(username, password)
-        if (error == 0):
-            cherrypy.session['username'] = username;
+        hashPass = sha256(password + username)
+        hexPass = hashPass.hexdigest()
+        error = self.loginToServer(username, hexPass)
+
+        if (error[0] == "0"):
+            cherrypy.session['username'] = username
+            cherrypy.session['password'] = hexPass
             raise cherrypy.HTTPRedirect('/')
         else:
             raise cherrypy.HTTPRedirect('/login')
@@ -80,13 +97,21 @@ class MainApp(object):
             cherrypy.lib.sessions.expire()
         raise cherrypy.HTTPRedirect('/')
 
-    def authoriseUserLogin(self, username, password):
-        print username
-        print password
-        if (username.lower() == "andrew") and (password.lower() == "password"):
-            return 0
-        else:
-            return 1
+
+    def loginToServer(self, username, hexPass):
+        url = "http://cs302.pythonanywhere.com/report"
+        #my_ip = urlopen('http://ip.42.pl/raw').read        #public IP
+        my_ip = socket.gethostbyname(socket.gethostname()) #local IP
+        my_port = 10005
+
+        data = {'username' : username, 'password' : hexPass, "location" : 1, 'ip' : my_ip, 'port' : my_port}
+        post = urlencode(data)
+        req = urllib2.Request(url, post)
+        response = urllib2.urlopen(req)
+
+        return response.read()
+
+
 
 
 def runMainApp():
