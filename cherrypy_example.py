@@ -16,13 +16,12 @@ listen_port = 1234
 
 import cherrypy
 from hashlib import sha256
-import json
-import httplib
 from urllib import urlencode
 import urllib2
-from urllib2 import urlopen
 import socket
+import os.path
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
 
 class MainApp(object):
     # CherryPy Configuration
@@ -61,10 +60,14 @@ class MainApp(object):
 
     @cherrypy.expose
     def login(self):
-        Page = '<form action="/signin" method="post" enctype="multipart/form-data">'
+        """Page = '<form action="/signin" method="post" enctype="multipart/form-data">'
         Page += 'Username: <input type="text" name="username"/><br/>'
-        Page += 'Password: <input type="text" name="password"/>'
+        Page += 'Password: <input type="password" name="password"/>'
         Page += '<input type="submit" value="Login"/></form>'
+        """
+        path = os.path.join('static', 'login.html')
+        Page = open(path)
+
         return Page
 
     @cherrypy.expose
@@ -116,12 +119,12 @@ class MainApp(object):
 
 def runMainApp():
     # Create an instance of MainApp and tell Cherrypy to send all requests under / to it. (ie all of them)
-    cherrypy.tree.mount(MainApp(), "/")
+    cherrypy.tree.mount(MainApp(), "/", "app.conf")
 
     # Tell Cherrypy to listen for connections on the configured address and port.
     cherrypy.config.update({'server.socket_host': listen_ip,
                             'server.socket_port': listen_port,
-                            'engine.autoreload.on': True,
+                            'engine.autoreload.on': True
                             })
 
     print "========================="
