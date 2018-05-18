@@ -20,6 +20,9 @@ from urllib import urlencode
 import urllib2
 import socket
 import os.path
+import sqlite3
+import json
+import dbManager
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -48,16 +51,33 @@ class MainApp(object):
             Page += "<br/> Additional text from sam."
             Page += 'Online Users: '
             userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
-            data = {'username' : cherrypy.session.get('username'), 'password' : cherrypy.session.get('password'), 'enc' : 0 }
+            data = {'username' : cherrypy.session.get('username'), 'password' : cherrypy.session.get('password'), 'enc' : 0, 'json' : 1 }
             post = urlencode(data)
             response = urllib2.urlopen(userListUrl, post)
-            Page += response.read()
-            Page = open(os.path.join('static', 'main.html'))
+            resp = response.read()
+            jsonUserList = json.loads(resp)
+            Page += resp
+            print jsonUserList
+
+            dbManager.openDB("mydb")
+            dbManager.addToUserTable("mydb", jsonUserList)
+            dbManager.readUserTable("mydb")
+
+
+            #Page = open(os.path.join('static', 'main.html'))
 
         except KeyError:  # There is no username
             Page = open(os.path.join('static', 'index.html'))
 
         return Page
+
+    @cherrypy.expose
+    def updateUserList(self):
+        userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
+        data = {'username': cherrypy.session.get('username'), 'password': cherrypy.session.get('password'), 'enc': 0,
+                'json': 1}
+        post = urlencode(data)
+        response = urllib2.urlopen(userListUrl, post)
 
     @cherrypy.expose
     def login(self):
@@ -91,21 +111,23 @@ class MainApp(object):
         data = {'username' : username, 'password' : password, 'enc' : 0}
 
         if (username == None):
+            print "not logged in"
             pass
         else:
             post = urlencode(data)
             req = urllib2.Request(url, post)
             cherrypy.lib.sessions.expire()
+            print "success"
         raise cherrypy.HTTPRedirect('/')
 
 
     def loginToServer(self, username, hexPass):
         url = "http://cs302.pythonanywhere.com/report"
-        my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()        #public IP
-        #my_ip = socket.gethostbyname(socket.gethostname()) #local IP
+        #my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()        #public IP
+        my_ip = socket.gethostbyname(socket.gethostname()) #local IP
         my_port = 10005
 
-        data = {'username' : username, 'password' : hexPass, "location" : 2, 'ip' : my_ip, 'port' : my_port}
+        data = {'username' : username, 'password' : hexPass, "location" : 1, 'ip' : my_ip, 'port' : my_port}
         post = urlencode(data)
         req = urllib2.Request(url, post)
         response = urllib2.urlopen(req)
