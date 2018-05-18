@@ -42,7 +42,6 @@ class MainApp(object):
     @cherrypy.expose
     def index(self):
         Page = "Welcome! This is a test website for COMPSYS302!<br/>"
-
         try:
             Page += "Hello " + cherrypy.session['username'] + "!<br/>"
             Page += "Login successful!"
@@ -53,27 +52,19 @@ class MainApp(object):
             post = urlencode(data)
             response = urllib2.urlopen(userListUrl, post)
             Page += response.read()
+            Page = open(os.path.join('static', 'main.html'))
 
         except KeyError:  # There is no username
-            Page += "Click here to <a href='login'>login</a>."
+            Page = open(os.path.join('static', 'index.html'))
+
         return Page
 
     @cherrypy.expose
     def login(self):
-        """Page = '<form action="/signin" method="post" enctype="multipart/form-data">'
-        Page += 'Username: <input type="text" name="username"/><br/>'
-        Page += 'Password: <input type="password" name="password"/>'
-        Page += '<input type="submit" value="Login"/></form>'
-        """
-        path = os.path.join('static', 'login.html')
-        Page = open(path)
+        loginpath = os.path.join('static', 'login.html')
+        Page = open(loginpath)
 
         return Page
-
-    @cherrypy.expose
-    def sum(self, a=0, b=0):  # All inputs are strings by default
-        output = int(a) + int(b)
-        return str(output)
 
     # LOGGING IN AND OUT
     @cherrypy.expose
@@ -88,26 +79,33 @@ class MainApp(object):
             cherrypy.session['password'] = hexPass
             raise cherrypy.HTTPRedirect('/')
         else:
+            print error
             raise cherrypy.HTTPRedirect('/login')
 
     @cherrypy.expose
     def signout(self):
         """Logs the current user out, expires their session"""
         username = cherrypy.session.get('username')
+        password = cherrypy.session.get('password')
+        url = "http://cs302.pythonanywhere.com/logoff"
+        data = {'username' : username, 'password' : password, 'enc' : 0}
+
         if (username == None):
             pass
         else:
+            post = urlencode(data)
+            req = urllib2.Request(url, post)
             cherrypy.lib.sessions.expire()
         raise cherrypy.HTTPRedirect('/')
 
 
     def loginToServer(self, username, hexPass):
         url = "http://cs302.pythonanywhere.com/report"
-        #my_ip = urlopen('http://ip.42.pl/raw').read        #public IP
-        my_ip = socket.gethostbyname(socket.gethostname()) #local IP
+        my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()        #public IP
+        #my_ip = socket.gethostbyname(socket.gethostname()) #local IP
         my_port = 10005
 
-        data = {'username' : username, 'password' : hexPass, "location" : 1, 'ip' : my_ip, 'port' : my_port}
+        data = {'username' : username, 'password' : hexPass, "location" : 2, 'ip' : my_ip, 'port' : my_port}
         post = urlencode(data)
         req = urllib2.Request(url, post)
         response = urllib2.urlopen(req)

@@ -1,5 +1,13 @@
-html,.body{
+html,.background{
 	height = 100%;
-	color: #FFFFFF; /*font color*/
 	background-color: #474747;
 	}
+.bodytext{
+	color: #FFFFFF; /*font color */
+	text-align: center;
+}
+.titletext{
+	height = 25%;
+	color: #0080FF;
+	text-align: center;
+}
