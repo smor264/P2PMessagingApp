@@ -23,6 +23,8 @@ import os.path
 import sqlite3
 import json
 import dbManager
+import atexit
+
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -46,6 +48,7 @@ class MainApp(object):
     def index(self):
         Page = "Welcome! This is a test website for COMPSYS302!<br/>"
         try:
+
             Page += "Hello " + cherrypy.session['username'] + "!<br/>"
             Page += "Login successful!"
             Page += "<br/> Additional text from sam."
@@ -61,10 +64,10 @@ class MainApp(object):
 
             dbManager.openDB("mydb")
             dbManager.addToUserTable("mydb", jsonUserList)
-            dbManager.readUserTable("mydb")
+            #dbManager.readUserTable("mydb")
 
 
-            #Page = open(os.path.join('static', 'main.html'))
+            Page = open(os.path.join('static', 'main.html'))
 
         except KeyError:  # There is no username
             Page = open(os.path.join('static', 'index.html'))
@@ -72,12 +75,33 @@ class MainApp(object):
         return Page
 
     @cherrypy.expose
-    def updateUserList(self):
+    def ping(self, sender):
+        raise cherrypy.HTTPRedirect('/')
+        return 0
+
+    #Backend methods
+    @cherrypy.expose
+    def updateUserList(self, parameter):
+        reportUrl = urllib2.Request('http://cs302.pythonanywhere.com/report')
         userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
         data = {'username': cherrypy.session.get('username'), 'password': cherrypy.session.get('password'), 'enc': 0,
-                'json': 1}
+                'json': 1,'location': 2, 'port': 10005, 'ip': cherrypy.session.get('ip')}
         post = urlencode(data)
-        response = urllib2.urlopen(userListUrl, post)
+        userList = urllib2.urlopen(userListUrl, post)
+        #data.update({'location': 2, 'port': 10005})
+        #post = urlencode(data)
+        report = urllib2.urlopen(reportUrl, post)
+        jsonUserList = userList.read()
+        jsonUserList = json.loads(jsonUserList)
+        print report.read()
+
+        replyString = "<ul>"
+        for id in jsonUserList:
+            replyString += "<li>" + jsonUserList[id][parameter] + "</li>"
+
+        replyString += "</ul>"
+        print replyString
+        return replyString
 
     @cherrypy.expose
     def login(self):
@@ -116,18 +140,20 @@ class MainApp(object):
         else:
             post = urlencode(data)
             req = urllib2.Request(url, post)
+            resp = urllib2.urlopen(req).read()
             cherrypy.lib.sessions.expire()
             print "success"
+            print resp
         raise cherrypy.HTTPRedirect('/')
 
 
-    def loginToServer(self, username, hexPass):
+    def loginToServer(self, username, hexPass, ):
         url = "http://cs302.pythonanywhere.com/report"
-        #my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()        #public IP
-        my_ip = socket.gethostbyname(socket.gethostname()) #local IP
+        my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()        #public IP
+        #my_ip = socket.gethostbyname(socket.gethostname()) #local IP
         my_port = 10005
-
-        data = {'username' : username, 'password' : hexPass, "location" : 1, 'ip' : my_ip, 'port' : my_port}
+        cherrypy.session['ip'] = my_ip
+        data = {'username' : username, 'password' : hexPass, "location" : 2, 'ip' : my_ip, 'port' : my_port}
         post = urlencode(data)
         req = urllib2.Request(url, post)
         response = urllib2.urlopen(req)
