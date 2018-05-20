@@ -142,7 +142,7 @@ class MainApp(object):
         raise cherrypy.HTTPRedirect('/')
 
 
-    def loginToServer(self, username, hexPass, ):
+    def loginToServer(self, username, hexPass):
         url = "http://cs302.pythonanywhere.com/report"
         my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()        #public IP
         #my_ip = socket.gethostbyname(socket.gethostname()) #local IP
@@ -164,10 +164,15 @@ class MainApp(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_in()
-    def receiveMessage(self, data):
+    def receiveMessage(self):
         input_data = cherrypy.request.json
-        dbManager.addMessage('db/mydb', input_data)
-        print input_data
+        senderName = input_data['sender']
+        newMessage = input_data['message']
+        print type(input_data)
+        print senderName
+        print newMessage
+        dbManager.addMessage(senderName, newMessage)
+
         return 0
 
 
