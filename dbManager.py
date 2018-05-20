@@ -7,7 +7,7 @@ def openDB(mydb):
     cursor = db.cursor()
     cursor.execute('''
                     CREATE TABLE IF NOT EXISTS users(name TEXT PRIMARY KEY, location TEXT,
-                                    IP TEXT, port TEXT, lastlogin INTEGER)''')
+                                    IP TEXT, port TEXT, lastlogin INTEGER, messages TEXT, stamp FLOAT)''')
     db.commit()
     db.close()
 
@@ -31,6 +31,32 @@ def addToUserTable(myDB, jsonUserList):
     finally:
         db.close()
 
+def addMessage(myDB, jsonData):
+    try:
+        db = sqlite3.connect('db/' + myDB)
+        cursor = db.cursor()
+
+        senderName = jsonData['sender']
+        newMessage = jsonData['message']
+
+        #Retrieve current data
+        cursor.execute('''SELECT name, messages FROM users''')
+        all_rows = cursor.fetchall()
+        oldMessages = ''
+        for row in all_rows:
+            if (row[0] == senderName):
+                oldMessages = row[1]
+
+        #Update the message data
+        cursor.execute('''
+                        INSERT OR UPDATE INTO users(name, message) VALUES(?,?) ''', senderName, oldMessages+newMessage)
+
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
+
 def readUserTable(myDB):
     try:
         db = sqlite3.connect('db/' + myDB)
@@ -46,8 +72,6 @@ def readUserTable(myDB):
         raise e
     finally:
         db.close()
-
-
 
 
 

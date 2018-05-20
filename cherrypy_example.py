@@ -74,11 +74,6 @@ class MainApp(object):
 
         return Page
 
-    @cherrypy.expose
-    def ping(self, sender):
-        raise cherrypy.HTTPRedirect('/')
-        return 0
-
     #Backend methods
     @cherrypy.expose
     def updateUserList(self, parameter):
@@ -159,6 +154,21 @@ class MainApp(object):
         response = urllib2.urlopen(req)
 
         return response.read()
+
+    @cherrypy.expose
+    @cherrypy.tools.json_in()
+    def ping(self, sender):
+        input_data = cherrypy.request.json
+        raise cherrypy.HTTPRedirect('/')
+        return 0
+
+    @cherrypy.expose
+    @cherrypy.tools.json_in()
+    def receiveMessage(self, data):
+        input_data = cherrypy.request.json
+        dbManager.addMessage('db/mydb', input_data)
+        print input_data
+        return 0
 
 
 

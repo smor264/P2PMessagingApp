@@ -27,6 +27,7 @@
 		</div>
 		<div class= "bodytext">
 			Successfully logged in! <br/><br/>
+			<p id="main"></p>
 		</div>
 		<div class= "sidebar">
 			Current online users:
@@ -35,6 +36,11 @@
 		<script>
 		//window.onload = httpGetAsync("/updateUserList?parameter=username",'username');
 		var func = httpGetAsync("/updateUserList?parameter=username",'username');
+		function foo() {
+			document.getElementById("main").innerHTML = "general kenobi";
+		}
+		var foofunc = foo();
+		setInterval(foofunc,500);
 		setInterval(func,1000);
 		</script>
 	</body>
