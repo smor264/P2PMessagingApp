@@ -12,7 +12,7 @@
 
 # The address we listen for connections on
 listen_ip = "0.0.0.0"
-listen_port = 1234
+listen_port = 10005
 
 import cherrypy
 from hashlib import sha256
@@ -64,8 +64,7 @@ class MainApp(object):
 
             dbManager.openDB("mydb")
             dbManager.addToUserTable("mydb", jsonUserList)
-            #dbManager.readUserTable("mydb")
-
+            # dbManager.readUserTable("mydb")
 
             Page = open(os.path.join('static', 'main.html'))
 
@@ -83,8 +82,8 @@ class MainApp(object):
                 'json': 1,'location': 2, 'port': 10005, 'ip': cherrypy.session.get('ip')}
         post = urlencode(data)
         userList = urllib2.urlopen(userListUrl, post)
-        #data.update({'location': 2, 'port': 10005})
-        #post = urlencode(data)
+        # data.update({'location': 2, 'port': 10005})
+        # post = urlencode(data)
         report = urllib2.urlopen(reportUrl, post)
         jsonUserList = userList.read()
         jsonUserList = json.loads(jsonUserList)
@@ -144,11 +143,11 @@ class MainApp(object):
 
     def loginToServer(self, username, hexPass):
         url = "http://cs302.pythonanywhere.com/report"
-        my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()        #public IP
-        #my_ip = socket.gethostbyname(socket.gethostname()) #local IP
+        # my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()        #public IP
+        my_ip = socket.gethostbyname(socket.gethostname())  # local IP
         my_port = 10005
         cherrypy.session['ip'] = my_ip
-        data = {'username' : username, 'password' : hexPass, "location" : 2, 'ip' : my_ip, 'port' : my_port}
+        data = {'username': username, 'password': hexPass, "location" : 1, 'ip': my_ip, 'port': my_port}
         post = urlencode(data)
         req = urllib2.Request(url, post)
         response = urllib2.urlopen(req)

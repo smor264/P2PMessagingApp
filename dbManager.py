@@ -1,13 +1,13 @@
 import sqlite3
 import json
 
-#Opens or creats a database with the name passed in
+# Opens or creats a database with the name passed in
 def openDB(mydb):
     db = sqlite3.connect('db/' + mydb)
     cursor = db.cursor()
     cursor.execute('''
                     CREATE TABLE IF NOT EXISTS users(name TEXT PRIMARY KEY, location TEXT,
-                                    IP TEXT, port TEXT, lastlogin INTEGER, messages TEXT, stamp FLOAT)''')
+                                    IP TEXT, port TEXT, lastlogin INTEGER, messages TEXT)''')
     db.commit()
     db.close()
 
@@ -22,8 +22,8 @@ def addToUserTable(myDB, jsonUserList):
             location = jsonUserList[id]['location']
             lastLogin = jsonUserList[id]['lastLogin']
             cursor.execute('''
-                            INSERT OR REPLACE INTO users(name, location, IP, port, lastlogin, messages)
-                                        VALUES(?,?,?,?,?,?)''', (name, location, ip, port, lastLogin,''))
+                            INSERT OR REPLACE INTO users(name, location, IP, port, lastlogin)
+                                        VALUES(?,?,?,?,?)''', (name, location, ip, port, lastLogin))
         db.commit()
     except Exception as e:
         db.rollback()
@@ -36,17 +36,19 @@ def addMessage(senderName, newMessage):
         db = sqlite3.connect('db/mydb')
         cursor = db.cursor()
 
-        #Retrieve current data
-        cursor.execute('''SELECT name, messages FROM users''')
-        all_rows = cursor.fetchall()
-        oldMessages = ''
-        for row in all_rows:
-            if (row[0] == senderName):
-                oldMessages = row[1]
-        allmessages = oldMessages+newMessage
-        #Update the message data
+        # check if table already exists
+        cursor.execute('''CREATE TABLE IF NOT EXISTS ''' + senderName + '''(messID INTEGER PRIMARY KEY, sender TEXT, message TEXT,
+                    stamp INTEGER)''')
+
+        # Add the message
         cursor.execute('''
-                        UPDATE users SET messages = ? WHERE name = ?''', (allmessages,senderName))
+                INSERT INTO ''' + senderName + '''(sender, message) VALUES(?,?)''', (senderName, newMessage))
+
+        all_rows = cursor.fetchall()
+        print "Current message database"
+        for row in all_rows:
+            print row
+
 
     except Exception as e:
         db.rollback()

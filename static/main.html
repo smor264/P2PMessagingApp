@@ -1,22 +1,7 @@
 <html>
 <head>
 	<link href="static/style.css" rel="stylesheet">
-	<script>
-	function httpGetAsync(url,parameter)
-	{
-		var xmlhttp = new XMLHttpRequest();
-		xmlhttp.onreadystatechange = function() {
-			if (xmlhttp.readState == 4 && xmlhttp.status == 200) {
-				console.log(xmlhttp.responseText);
-				}
-				document.getElementById(parameter).innerHTML = xmlhttp.responseText;
-			
-	}
-	xmlhttp.open("GET", url, true);
-	xmlhttp.send();
-	}
-	
-	</script>
+
 </head>
 <header>
 <title>Welcome!</title>
@@ -33,15 +18,46 @@
 			Current online users:
 			<aside id="username"></aside>
 		</div>
-		<script>
-		//window.onload = httpGetAsync("/updateUserList?parameter=username",'username');
-		var func = httpGetAsync("/updateUserList?parameter=username",'username');
-		function foo() {
-			document.getElementById("main").innerHTML = "general kenobi";
-		}
-		var foofunc = foo();
-		setInterval(foofunc,500);
-		setInterval(func,1000);
-		</script>
 	</body>
+	<footer>
+	<script>
+	/*function httpGetAsync(url,parameter)
+	{
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.onreadystatechange = function() {
+			if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+				console.log(xmlhttp.responseText);
+				document.getElementById(parameter).innerHTML = xmlhttp.responseText;
+				}	
+	};
+	xmlhttp.open("GET", url, true);
+	xmlhttp.send();
+	};
+	var func = httpGetAsync("/updateUserList?parameter=username",'username');
+	setInterval(func,1000);
+	*/
+	function httpGetAsync()
+	{
+		url = "/updateUserList?parameter=username";
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.onreadystatechange = function() {
+			if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+				console.log(xmlhttp.responseText);
+				document.getElementById("username").innerHTML = xmlhttp.responseText;
+				}	
+		};
+	xmlhttp.open("GET", url, true);
+	xmlhttp.send();
+	};
+	setInterval(httpGetAsync,2000);
+	
+	
+	function foo() {
+	var currentDate = new Date();
+		document.getElementById("main").innerHTML = currentDate.getSeconds();
+	};	
+	var foofunc = foo();
+	setInterval(foofunc,500);
+	</script>
+	</footer>
 </html>	
