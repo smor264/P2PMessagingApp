@@ -21,21 +21,6 @@
 	</body>
 	<footer>
 	<script>
-	/*function httpGetAsync(url,parameter)
-	{
-		var xmlhttp = new XMLHttpRequest();
-		xmlhttp.onreadystatechange = function() {
-			if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-				console.log(xmlhttp.responseText);
-				document.getElementById(parameter).innerHTML = xmlhttp.responseText;
-				}	
-	};
-	xmlhttp.open("GET", url, true);
-	xmlhttp.send();
-	};
-	var func = httpGetAsync("/updateUserList?parameter=username",'username');
-	setInterval(func,1000);
-	*/
 	function httpGetAsync()
 	{
 		url = "/updateUserList?parameter=username";
@@ -49,7 +34,8 @@
 	xmlhttp.open("GET", url, true);
 	xmlhttp.send();
 	};
-	setInterval(httpGetAsync,2000);
+	window.onload = httpGetAsync;
+	setInterval(httpGetAsync,10000);
 	
 	
 	function foo() {

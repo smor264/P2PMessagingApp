@@ -7,7 +7,10 @@ def openDB(mydb):
     cursor = db.cursor()
     cursor.execute('''
                     CREATE TABLE IF NOT EXISTS users(name TEXT PRIMARY KEY, location TEXT,
-                                    IP TEXT, port TEXT, lastlogin INTEGER, messages TEXT)''')
+                                    IP TEXT, port TEXT, lastlogin INTEGER)''')
+    cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS messages(messageID TEXT PRIMARY KEY, sender TEXT,
+                                    messages TEXT, stamp TEXT)''')
     db.commit()
     db.close()
 
@@ -21,8 +24,9 @@ def addToUserTable(myDB, jsonUserList):
             port = jsonUserList[id]['port']
             location = jsonUserList[id]['location']
             lastLogin = jsonUserList[id]['lastLogin']
+            tableName = 'users'
             cursor.execute('''
-                            INSERT OR REPLACE INTO users(name, location, IP, port, lastlogin)
+                            INSERT OR REPLACE INTO '''+tableName+'''(name, location, IP, port, lastlogin)
                                         VALUES(?,?,?,?,?)''', (name, location, ip, port, lastLogin))
         db.commit()
     except Exception as e:
@@ -31,24 +35,22 @@ def addToUserTable(myDB, jsonUserList):
     finally:
         db.close()
 
-def addMessage(senderName, newMessage):
+def addMessage(senderName, newMessage, stamp):
     try:
         db = sqlite3.connect('db/mydb')
         cursor = db.cursor()
 
-        # check if table already exists
-        cursor.execute('''CREATE TABLE IF NOT EXISTS ''' + senderName + '''(messID INTEGER PRIMARY KEY, sender TEXT, message TEXT,
-                    stamp INTEGER)''')
+        # Check for duplicate messages
+        messID = senderName + newMessage
 
         # Add the message
-        cursor.execute('''
-                INSERT INTO ''' + senderName + '''(sender, message) VALUES(?,?)''', (senderName, newMessage))
-
-        all_rows = cursor.fetchall()
-        print "Current message database"
-        for row in all_rows:
-            print row
-
+        try:
+            cursor.execute('''
+                INSERT INTO messages(messageID, sender, messages, stamp) VALUES(?,?,?,?)''', (messID, senderName, newMessage, stamp))
+            db.commit()
+        except Exception as e:
+            print 'Duplicate message'
+            raise e
 
     except Exception as e:
         db.rollback()
@@ -72,5 +74,20 @@ def readUserTable(myDB):
     finally:
         db.close()
 
+def readMessages(sender):
+    try:
+        db = sqlite3.connect('db/mydb')
+        cursor = db.cursor()
+        messageLog = 'no messages'
+        cursor.execute('''SELECT messages, stamp FROM messages''')  # WHERE sender = ?''', sender)
+        all_rows = cursor.fetchall()
+        for row in all_rows:
+            print row
+            messageLog += row
 
-
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        db.close()
+        return messageLog

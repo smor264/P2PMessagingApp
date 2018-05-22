@@ -48,19 +48,13 @@ class MainApp(object):
     def index(self):
         Page = "Welcome! This is a test website for COMPSYS302!<br/>"
         try:
-
-            Page += "Hello " + cherrypy.session['username'] + "!<br/>"
-            Page += "Login successful!"
-            Page += "<br/> Additional text from sam."
-            Page += 'Online Users: '
             userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
-            data = {'username' : cherrypy.session.get('username'), 'password' : cherrypy.session.get('password'), 'enc' : 0, 'json' : 1 }
+            data = {'username': cherrypy.session.get('username'), 'password': cherrypy.session.get('password'), 'enc' : 0, 'json' : 1}
             post = urlencode(data)
             response = urllib2.urlopen(userListUrl, post)
             resp = response.read()
+            print resp
             jsonUserList = json.loads(resp)
-            Page += resp
-            print jsonUserList
 
             dbManager.openDB("mydb")
             dbManager.addToUserTable("mydb", jsonUserList)
@@ -68,34 +62,37 @@ class MainApp(object):
 
             Page = open(os.path.join('static', 'main.html'))
 
-        except KeyError:  # There is no username
+        except (KeyError, ValueError):  # There is no username
             Page = open(os.path.join('static', 'index.html'))
-
         return Page
 
     #Backend methods
     @cherrypy.expose
     def updateUserList(self, parameter):
-        reportUrl = urllib2.Request('http://cs302.pythonanywhere.com/report')
-        userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
-        data = {'username': cherrypy.session.get('username'), 'password': cherrypy.session.get('password'), 'enc': 0,
-                'json': 1,'location': 2, 'port': 10005, 'ip': cherrypy.session.get('ip')}
-        post = urlencode(data)
-        userList = urllib2.urlopen(userListUrl, post)
-        # data.update({'location': 2, 'port': 10005})
-        # post = urlencode(data)
-        report = urllib2.urlopen(reportUrl, post)
-        jsonUserList = userList.read()
-        jsonUserList = json.loads(jsonUserList)
-        print report.read()
 
-        replyString = "<ul>"
-        for id in jsonUserList:
-            replyString += "<li>" + jsonUserList[id][parameter] + "</li>"
+        username = cherrypy.session.get('username')
+        if(username != None):
+            reportUrl = urllib2.Request('http://cs302.pythonanywhere.com/report')
+            userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
+            data = {'username': cherrypy.session.get('username'), 'password': cherrypy.session.get('password'), 'enc': 0,
+                    'json': 1,'location': 2, 'port': 10005, 'ip': cherrypy.session.get('ip')}
+            post = urlencode(data)
+            userList = urllib2.urlopen(userListUrl, post)
+            # data.update({'location': 2, 'port': 10005})
+            # post = urlencode(data)
+            report = urllib2.urlopen(reportUrl, post)
+            jsonUserList = userList.read()
+            jsonUserList = json.loads(jsonUserList)
 
-        replyString += "</ul>"
-        print replyString
-        return replyString
+            replyString = "<ul>"
+            for id in jsonUserList:
+                replyString += "<li>" + jsonUserList[id][parameter] + "</li>"
+
+            replyString += "</ul>"
+            return replyString
+
+        else:
+            return "Not logged in"
 
     @cherrypy.expose
     def login(self):
@@ -135,9 +132,10 @@ class MainApp(object):
             post = urlencode(data)
             req = urllib2.Request(url, post)
             resp = urllib2.urlopen(req).read()
+            del cherrypy.session['username']
+            del cherrypy.session['password']
             cherrypy.lib.sessions.expire()
-            print "success"
-            print resp
+
         raise cherrypy.HTTPRedirect('/')
 
 
@@ -156,10 +154,10 @@ class MainApp(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_in()
-    def ping(self, sender):
+    def ping(self):
         input_data = cherrypy.request.json
-        raise cherrypy.HTTPRedirect('/')
-        return 0
+        # raise cherrypy.HTTPRedirect('/')
+        return '0'
 
     @cherrypy.expose
     @cherrypy.tools.json_in()
@@ -167,15 +165,10 @@ class MainApp(object):
         input_data = cherrypy.request.json
         senderName = input_data['sender']
         newMessage = input_data['message']
-        print type(input_data)
-        print senderName
-        print newMessage
-        dbManager.addMessage(senderName, newMessage)
+        stamp = input_data['stamp']
+        dbManager.addMessage(senderName, newMessage, stamp)
 
-        return 0
-
-
-
+        return '0'
 
 def runMainApp():
     # Create an instance of MainApp and tell Cherrypy to send all requests under / to it. (ie all of them)
