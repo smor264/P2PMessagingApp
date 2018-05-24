@@ -4,6 +4,46 @@
 
 </head>
 <header>
+	<script>
+	function httpGetAsync()
+	{
+		url = "/updateUserList?parameter=username";
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.onreadystatechange = function() {
+			if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+				console.log(xmlhttp.responseText);
+				document.getElementById("username").innerHTML = xmlhttp.responseText;
+				}	
+		};
+	xmlhttp.open("GET", url, true);
+	xmlhttp.send();
+	};
+	
+		function pullMessages(sender)
+	{
+		url = "/inbox?sender="+sender;
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.onreadystatechange = function() {
+			if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+				console.log(xmlhttp.responseText);
+				document.getElementById("main").innerHTML = xmlhttp.responseText;
+				}	
+		};
+	xmlhttp.open("GET", url, true);
+	xmlhttp.send();
+	};
+	
+	window.onload = httpGetAsync;
+	setInterval(httpGetAsync,10000);
+	
+	
+	function foo() {
+	var currentDate = new Date();
+		document.getElementById("main").innerHTML = currentDate.getSeconds();
+	};	
+	//var foofunc = foo;
+	//setInterval(foofunc,500);
+	</script>
 <title>Welcome!</title>
 </header>
 	<body>
@@ -20,30 +60,6 @@
 		</div>
 	</body>
 	<footer>
-	<script>
-	function httpGetAsync()
-	{
-		url = "/updateUserList?parameter=username";
-		var xmlhttp = new XMLHttpRequest();
-		xmlhttp.onreadystatechange = function() {
-			if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-				console.log(xmlhttp.responseText);
-				document.getElementById("username").innerHTML = xmlhttp.responseText;
-				}	
-		};
-	xmlhttp.open("GET", url, true);
-	xmlhttp.send();
-	};
-	window.onload = httpGetAsync;
-	setInterval(httpGetAsync,10000);
-	
-	
-	function foo() {
-	var currentDate = new Date();
-		document.getElementById("main").innerHTML = currentDate.getSeconds();
-	};	
-	var foofunc = foo();
-	setInterval(foofunc,500);
-	</script>
+
 	</footer>
 </html>	

@@ -84,9 +84,11 @@ class MainApp(object):
             jsonUserList = userList.read()
             jsonUserList = json.loads(jsonUserList)
 
+
             replyString = "<ul>"
             for id in jsonUserList:
-                replyString += "<li>" + jsonUserList[id][parameter] + "</li>"
+                user = jsonUserList[id][parameter]
+                replyString += "<li>" + "<a href=javascript:varget=pullMessages('" + user + "');>" + jsonUserList[id][parameter] + "</a></li>"
 
             replyString += "</ul>"
             return replyString
@@ -141,11 +143,11 @@ class MainApp(object):
 
     def loginToServer(self, username, hexPass):
         url = "http://cs302.pythonanywhere.com/report"
-        # my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()        #public IP
-        my_ip = socket.gethostbyname(socket.gethostname())  # local IP
+        my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()        #public IP
+        # my_ip = socket.gethostbyname(socket.gethostname())  # local IP
         my_port = 10005
         cherrypy.session['ip'] = my_ip
-        data = {'username': username, 'password': hexPass, "location" : 1, 'ip': my_ip, 'port': my_port}
+        data = {'username': username, 'password': hexPass, "location" : 2, 'ip': my_ip, 'port': my_port}
         post = urlencode(data)
         req = urllib2.Request(url, post)
         response = urllib2.urlopen(req)
@@ -159,6 +161,7 @@ class MainApp(object):
         # raise cherrypy.HTTPRedirect('/')
         return '0'
 
+    # Messaging
     @cherrypy.expose
     @cherrypy.tools.json_in()
     def receiveMessage(self):
@@ -169,6 +172,29 @@ class MainApp(object):
         dbManager.addMessage(senderName, newMessage, stamp)
 
         return '0'
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out
+    def sendMessage(self):
+        message = "Hello word"
+
+    @cherrypy.expose
+    def messages(self, sender):
+        if cherrypy.session.get('username') == None:
+            Page = "Not logged in"
+        else:
+
+            Page = open(os.path.join('static', 'messages.html'))
+
+        return Page
+
+    @cherrypy.expose
+    def inbox(self, sender):
+        if cherrypy.session.get('username') == None:
+            Page = "Not logged in"
+        else:
+            Page = dbManager.readMessages(sender)
+        return Page
 
 def runMainApp():
     # Create an instance of MainApp and tell Cherrypy to send all requests under / to it. (ie all of them)

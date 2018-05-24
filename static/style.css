@@ -5,6 +5,8 @@ html,.background{
 .bodytext{
 	color: #FFFFFF; /*font color */
 	text-align: center;
+	float: right;
+	width: 75%
 }
 .titletext{
 	height = 25%;
@@ -13,4 +15,17 @@ html,.background{
 }
 .sidebar{
 	color: #2ada0c;
+	float: left;
+	width: 25%;
+}
+a{
+	color: inherit;
+}
+a:hover{
+	color: #00A0C6;
+}
+@media screen and (max-width: 600px) {
+	.sidebar, .bodytext {
+		width: 100%;
+	}
 }

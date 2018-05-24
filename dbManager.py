@@ -26,7 +26,7 @@ def addToUserTable(myDB, jsonUserList):
             lastLogin = jsonUserList[id]['lastLogin']
             tableName = 'users'
             cursor.execute('''
-                            INSERT OR REPLACE INTO '''+tableName+'''(name, location, IP, port, lastlogin)
+                            INSERT OR REPLACE INTO users(name, location, IP, port, lastlogin)
                                         VALUES(?,?,?,?,?)''', (name, location, ip, port, lastLogin))
         db.commit()
     except Exception as e:
@@ -78,12 +78,12 @@ def readMessages(sender):
     try:
         db = sqlite3.connect('db/mydb')
         cursor = db.cursor()
-        messageLog = 'no messages'
-        cursor.execute('''SELECT messages, stamp FROM messages''')  # WHERE sender = ?''', sender)
+        messageLog = 'Messages from ' + sender + ': <br/>'
+        cursor.execute('''SELECT messages, stamp FROM messages WHERE sender=?''', (sender,))
         all_rows = cursor.fetchall()
         for row in all_rows:
             print row
-            messageLog += row
+            messageLog += row[0] + " " + row[1] + "<br/>"
 
     except Exception as e:
         db.rollback()
