@@ -52,7 +52,14 @@
 		</div>
 		<div class= "bodytext">
 			Successfully logged in! <br/><br/>
+			Click on a user to start chatting <br/>
 			<p id="main"></p>
+			
+		</div>
+		<div class= "chatbox">
+			<form action="/sendMessage" method="post">
+			<textarea rows='5' cols='100'></textarea>
+			<input type="submit" value="Send">
 		</div>
 		<div class= "sidebar">
 			Current online users:

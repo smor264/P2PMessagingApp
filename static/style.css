@@ -24,6 +24,11 @@ a{
 a:hover{
 	color: #00A0C6;
 }
+.chatbox{
+	position: absolute;
+	bottom: 0;
+	right: 500;
+}
 @media screen and (max-width: 600px) {
 	.sidebar, .bodytext {
 		width: 100%;

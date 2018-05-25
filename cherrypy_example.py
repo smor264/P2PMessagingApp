@@ -24,6 +24,8 @@ import sqlite3
 import json
 import dbManager
 import atexit
+import calendar
+import time
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -174,9 +176,17 @@ class MainApp(object):
         return '0'
 
     @cherrypy.expose
-    @cherrypy.tools.json_out
-    def sendMessage(self):
-        message = "Hello word"
+    @cherrypy.tools.json_out()
+    def sendMessage(self, message=None, recipient=None):
+        dataToPost = {'sender': cherrypy.session.get('username'), 'message': message, 'recipient': recipient, 'stamp': calendar.timegm(time.gmtime())}
+        dataToPost = json.dumps(dataToPost)
+        url = dbManager.getUserDetails(recipient, 'IP') #TODO: Retrieve IP from db
+        port = dbManager.getUserDetails(recipient, 'port')
+        post = urlencode(url+":"+port, dataToPost)
+        req = urllib2.request(url, dataToPost)
+        response = urllib2.urlopen(req)
+        print response.read()
+        return '0'
 
     @cherrypy.expose
     def messages(self, sender):

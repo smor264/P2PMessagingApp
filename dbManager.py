@@ -91,3 +91,17 @@ def readMessages(sender):
     finally:
         db.close()
         return messageLog
+
+def getUserDetails(user, details):
+    try:
+        db = sqlite3.connect('db/mydb')
+        cursor = db.cursor()
+        cursor.execute('''SELECT ? FROM users WHERE name=?''', (details, user))
+        output = cursor.fetchall()
+    except Exception as e:
+        output = "Not Available"
+        db.rollback()
+        raise e
+    finally:
+        db.close()
+        return output
