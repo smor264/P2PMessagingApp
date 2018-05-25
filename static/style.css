@@ -27,7 +27,7 @@ a:hover{
 .chatbox{
 	position: absolute;
 	bottom: 0;
-	right: 500;
+	right: 200;
 }
 @media screen and (max-width: 600px) {
 	.sidebar, .bodytext {
