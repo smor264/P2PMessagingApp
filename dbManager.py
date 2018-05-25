@@ -92,16 +92,32 @@ def readMessages(sender):
         db.close()
         return messageLog
 
-def getUserDetails(user, details):
+def getUserIP(user):
     try:
         db = sqlite3.connect('db/mydb')
         cursor = db.cursor()
-        cursor.execute('''SELECT ? FROM users WHERE name=?''', (details, user))
-        output = cursor.fetchall()
-    except Exception as e:
+        cursor.execute('''SELECT IP FROM users WHERE name=?''', (user,))
+        output = cursor.fetchone()
+    except ValueError as e:
         output = "Not Available"
+	print "Detail not found"
         db.rollback()
         raise e
     finally:
         db.close()
-        return output
+        return output[0]
+
+def getUserPort(user):
+    try:
+        db = sqlite3.connect('db/mydb')
+        cursor = db.cursor()
+        cursor.execute('''SELECT port FROM users WHERE name=?''', (user,))
+        output = cursor.fetchone()
+    except ValueError as e:
+        output = "Not Available"
+	print "Detail not found"
+        db.rollback()
+        raise e
+    finally:
+        db.close()
+        return output[0]

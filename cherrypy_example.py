@@ -90,7 +90,7 @@ class MainApp(object):
             replyString = "<ul>"
             for id in jsonUserList:
                 user = jsonUserList[id][parameter]
-                replyString += "<li>" + "<a href=javascript:varget=pullMessages('" + user + "');>" + jsonUserList[id][parameter] + "</a></li>"
+                replyString += "<li>" + "<a href=javascript:pullMessages('" + user + "');>" + jsonUserList[id][parameter] + "</a></li>"
 
             replyString += "</ul>"
             return replyString
@@ -145,11 +145,11 @@ class MainApp(object):
 
     def loginToServer(self, username, hexPass):
         url = "http://cs302.pythonanywhere.com/report"
-        my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()        #public IP
-        # my_ip = socket.gethostbyname(socket.gethostname())  # local IP
+        # my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()        #public IP
+        my_ip = socket.gethostbyname(socket.gethostname())  # local IP
         my_port = 10005
         cherrypy.session['ip'] = my_ip
-        data = {'username': username, 'password': hexPass, "location" : 2, 'ip': my_ip, 'port': my_port}
+        data = {'username': username, 'password': hexPass, "location" : 0, 'ip': my_ip, 'port': my_port}
         post = urlencode(data)
         req = urllib2.Request(url, post)
         response = urllib2.urlopen(req)
@@ -157,8 +157,7 @@ class MainApp(object):
         return response.read()
 
     @cherrypy.expose
-    @cherrypy.tools.json_in()
-    def ping(self):
+    def ping(self, sender):
         input_data = cherrypy.request.json
         # raise cherrypy.HTTPRedirect('/')
         return '0'
@@ -177,16 +176,23 @@ class MainApp(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def sendMessage(self, message=None, recipient=None):
-        dataToPost = {'sender': cherrypy.session.get('username'), 'message': message, 'recipient': recipient, 'stamp': calendar.timegm(time.gmtime())}
-        dataToPost = json.dumps(dataToPost)
-        url = dbManager.getUserDetails(recipient, 'IP') #TODO: Retrieve IP from db
-        port = dbManager.getUserDetails(recipient, 'port')
-        post = urlencode(url+":"+port, dataToPost)
-        req = urllib2.request(url, dataToPost)
-        response = urllib2.urlopen(req)
-        print response.read()
-        return '0'
+    def sendMessage(self, message=None):
+	recipient = cherrypy.session.get('recipient')
+	username = cherrypy.session.get('username')
+	currentTime = calendar.timegm(time.gmtime())
+        dataToPost = {'sender': username, 'message': message, 'recipient': recipient, 'stamp': currentTime}
+        url = dbManager.getUserIP(recipient)
+        port = dbManager.getUserPort(recipient)
+	url = url + ":" + port
+	print "Attempted Url is: " + url
+	print "Attempted Data is: "
+	print dataToPost
+        post = urlencode(dataToPost)
+        req = urllib2.Request(url, post)
+        # response = urllib2.urlopen(req)
+        # print response.read()
+        # return '0'
+	raise cherrypy.HTTPRedirect('/')
 
     @cherrypy.expose
     def messages(self, sender):
@@ -198,12 +204,14 @@ class MainApp(object):
 
         return Page
 
+	# Retrieves Message History
     @cherrypy.expose
     def inbox(self, sender):
         if cherrypy.session.get('username') == None:
             Page = "Not logged in"
         else:
             Page = dbManager.readMessages(sender)
+	    cherrypy.session['recipient'] = sender
         return Page
 
 def runMainApp():

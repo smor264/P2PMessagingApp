@@ -1,10 +1,11 @@
 <html>
 <head>
 	<link href="static/style.css" rel="stylesheet">
-
+	<script src="jquery-3.3.1.min.js"></script>
 </head>
 <header>
 	<script>
+	var currentRecipient = "None"
 	function httpGetAsync()
 	{
 		url = "/updateUserList?parameter=username";
@@ -17,10 +18,12 @@
 		};
 	xmlhttp.open("GET", url, true);
 	xmlhttp.send();
+	ptc(currentRecipient);
 	};
 	
-		function pullMessages(sender)
+	function pullMessages(sender)
 	{
+		currentRecipient = sender;
 		url = "/inbox?sender="+sender;
 		var xmlhttp = new XMLHttpRequest();
 		xmlhttp.onreadystatechange = function() {
@@ -43,6 +46,9 @@
 	};	
 	//var foofunc = foo;
 	//setInterval(foofunc,500);
+	function ptc(thing) {
+		console.log(thing);
+	}
 	</script>
 <title>Welcome!</title>
 </header>
@@ -57,8 +63,8 @@
 			
 		</div>
 		<div class= "chatbox">
-			<form action="/sendMessage" method="post">
-			<textarea rows='5' cols='100'></textarea>
+			<form id="submitMessage" action="/sendMessage" method="post">
+			<textarea rows='5' cols='100' name="message"></textarea>
 			<input type="submit" value="Send">
 		</div>
 		<div class= "sidebar">
