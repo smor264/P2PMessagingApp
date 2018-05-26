@@ -1,5 +1,6 @@
 import sqlite3
 import json
+import cherrypy
 
 # Opens or creats a database with the name passed in
 def openDB(mydb):
@@ -9,7 +10,7 @@ def openDB(mydb):
                     CREATE TABLE IF NOT EXISTS users(name TEXT PRIMARY KEY, location TEXT,
                                     IP TEXT, port TEXT, lastlogin INTEGER)''')
     cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS messages(messageID TEXT PRIMARY KEY, sender TEXT,
+                    CREATE TABLE IF NOT EXISTS messages(messageID TEXT PRIMARY KEY, sender TEXT, destination TEXT,
                                     messages TEXT, stamp TEXT)''')
     db.commit()
     db.close()
@@ -35,18 +36,18 @@ def addToUserTable(myDB, jsonUserList):
     finally:
         db.close()
 
-def addMessage(senderName, newMessage, stamp):
+def addMessage(senderName, newMessage, stamp, destination):
     try:
         db = sqlite3.connect('db/mydb')
         cursor = db.cursor()
 
         # Check for duplicate messages
-        messID = senderName + newMessage
+        messID = newMessage+stamp+senderName
 
         # Add the message
         try:
             cursor.execute('''
-                INSERT INTO messages(messageID, sender, messages, stamp) VALUES(?,?,?,?)''', (messID, senderName, newMessage, stamp))
+                INSERT INTO messages(messageID, sender, destination, messages, stamp) VALUES(?,?,?,?,?)''', (messID, senderName, destination, newMessage, stamp))
             db.commit()
         except Exception as e:
             print 'Duplicate message'
@@ -78,11 +79,12 @@ def readMessages(sender):
     try:
         db = sqlite3.connect('db/mydb')
         cursor = db.cursor()
+        user = cherrypy.session.get('username')
         messageLog = 'Messages from ' + sender + ': <br/>'
-        cursor.execute('''SELECT messages, stamp FROM messages WHERE sender=?''', (sender,))
+        cursor.execute('''SELECT messages, stamp FROM messages WHERE (sender=? AND destination=?) OR (destination=? AND sender=?)''', (sender, user, sender, user))
         all_rows = cursor.fetchall()
         for row in all_rows:
-            print row
+            # print row
             messageLog += row[0] + " " + row[1] + "<br/>"
 
     except Exception as e:

@@ -26,9 +26,18 @@ import dbManager
 import atexit
 import calendar
 import time
+import logging
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
+
+
+class IgnoreURLFilter(logging.Filter):
+    def __init__(self, ignore):
+        self.ignore = 'GET /' + ignore
+
+    def filter(self, record):
+        return not self.ignore in record.getMessage()
 
 class MainApp(object):
     # CherryPy Configuration
@@ -71,7 +80,6 @@ class MainApp(object):
     #Backend methods
     @cherrypy.expose
     def updateUserList(self, parameter):
-
         username = cherrypy.session.get('username')
         if(username != None):
             reportUrl = urllib2.Request('http://cs302.pythonanywhere.com/report')
@@ -129,7 +137,7 @@ class MainApp(object):
         url = "http://cs302.pythonanywhere.com/logoff"
         data = {'username' : username, 'password' : password, 'enc' : 0}
 
-        if (username == None):
+        if username is None:
             print "not logged in"
             pass
         else:
@@ -145,11 +153,11 @@ class MainApp(object):
 
     def loginToServer(self, username, hexPass):
         url = "http://cs302.pythonanywhere.com/report"
-        my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()        #public IP
+        my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()      # public IP
         # my_ip = socket.gethostbyname(socket.gethostname())  # local IP
         my_port = 10005
         cherrypy.session['ip'] = my_ip
-        data = {'username': username, 'password': hexPass, "location" : 2, 'ip': my_ip, 'port': my_port}
+        data = {'username': username, 'password': hexPass, "location": 2, 'ip': my_ip, 'port': my_port}
         post = urlencode(data)
         req = urllib2.Request(url, post)
         response = urllib2.urlopen(req)
@@ -170,7 +178,8 @@ class MainApp(object):
         senderName = input_data['sender']
         newMessage = input_data['message']
         stamp = input_data['stamp']
-        dbManager.addMessage(senderName, newMessage, stamp)
+        destination = input_data['destination']
+        dbManager.addMessage(senderName, newMessage, stamp, destination)
 
         return '0'
 
@@ -180,30 +189,58 @@ class MainApp(object):
         recipient = cherrypy.session.get('recipient')
         username = cherrypy.session.get('username')
         currentTime = str(calendar.timegm(time.gmtime()))
+
         dataToPost = {'sender': username, 'message': message, 'destination': recipient, 'stamp': currentTime}
         url = dbManager.getUserIP(recipient)
         port = dbManager.getUserPort(recipient)
         url = "http://" + url + ":" + port + "/receiveMessage"
         url = url.encode('ascii', 'ignore')
+
         print "Attempted Url is: " + url
-        print type(url)
         print "Attempted Data is: "
         print dataToPost
-        # post = urlencode(dataToPost)
+
         post = json.dumps(dataToPost)
         req = urllib2.Request(url)
         req.add_header('Content-Type', 'application/json')
         response = urllib2.urlopen(req, post)
-        print response.read()
+
+        if response.read() == '0' and recipient != username:
+            dbManager.addMessage(username, message, currentTime, recipient)
         # return '0'
         raise cherrypy.HTTPRedirect('/')
 
+    # FILES
+    @cherrypy.expose
+    @cherrypy.tools.json_in()
+    def receiveFile(self):
+        input_data = cherrypy.request.json
+        sender = input_data['sender']
+        destination = input_data['destination']
+        encodedfile = input_data['file']
+        filename = input_data['filename']
+        content_type = input_data['content_type']
+        stamp = input_data['stamp']
+        # path = os.path.join(current_dir, 'db')
+
+        decodedfile = encodedfile.decode('base64')
+        savefile = open(filename, 'wb')
+        savefile.write(decodedfile)
+
+        return '0'
+
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    def sendFile(self):
+
+        return '0'
+
     @cherrypy.expose
     def messages(self, sender):
-        if cherrypy.session.get('username') == None:
+        if cherrypy.session.get('username') is None:
             Page = "Not logged in"
         else:
-
             Page = open(os.path.join('static', 'messages.html'))
 
         return Page
@@ -211,16 +248,31 @@ class MainApp(object):
 	# Retrieves Message History
     @cherrypy.expose
     def inbox(self, sender):
-        if cherrypy.session.get('username') == None:
+        if cherrypy.session.get('username') is None:
             Page = "Not logged in"
+
+        elif sender == 'None':
+            Page = "Choose a user to start chatting"
+
         else:
+            cherrypy.session['recipient'] = sender
             Page = dbManager.readMessages(sender)
-	    cherrypy.session['recipient'] = sender
+
         return Page
+
+    @cherrypy.expose
+    def currentChat(self):
+        if cherrypy.session.get('recipient') is None:
+            return "None"
+        else:
+            return cherrypy.session.get('recipient')
 
 def runMainApp():
     # Create an instance of MainApp and tell Cherrypy to send all requests under / to it. (ie all of them)
-    cherrypy.tree.mount(MainApp(), "/", "app.conf")
+    app = cherrypy.tree.mount(MainApp(), "/", "app.conf")
+    app.log.access_log.addFilter(IgnoreURLFilter('updateUserList?parameter=username'))
+    app.log.access_log.addFilter(IgnoreURLFilter('currentChat'))
+    app.log.access_log.addFilter(IgnoreURLFilter('inbox?sender=None'))
 
     # Tell Cherrypy to listen for connections on the configured address and port.
     cherrypy.config.update({'server.socket_host': listen_ip,

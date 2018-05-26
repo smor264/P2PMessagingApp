@@ -6,8 +6,20 @@
 <header>
 	<script>
 	var currentRecipient = "None"
-	function httpGetAsync()
-	{
+	
+	function getCurrentChat() {		
+	url = "/currentChat";
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.onreadystatechange = function() {
+			if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+				currentRecipient = xmlhttp.responseText;
+				}	
+		};
+	xmlhttp.open("GET", url, true);
+	xmlhttp.send();
+	};
+	
+	function httpGetAsync(){
 		url = "/updateUserList?parameter=username";
 		var xmlhttp = new XMLHttpRequest();
 		xmlhttp.onreadystatechange = function() {
@@ -19,16 +31,16 @@
 	xmlhttp.open("GET", url, true);
 	xmlhttp.send();
 	ptc(currentRecipient);
+	pullMessages(currentRecipient);
 	};
 	
-	function pullMessages(sender)
-	{
+	function pullMessages(sender){
 		currentRecipient = sender;
 		url = "/inbox?sender="+sender;
 		var xmlhttp = new XMLHttpRequest();
 		xmlhttp.onreadystatechange = function() {
 			if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-				console.log(xmlhttp.responseText);
+				//console.log(xmlhttp.responseText);
 				document.getElementById("main").innerHTML = xmlhttp.responseText;
 				}	
 		};
@@ -36,14 +48,13 @@
 	xmlhttp.send();
 	};
 	
+	window.onload = getCurrentChat;
 	window.onload = httpGetAsync;
-	setInterval(httpGetAsync,10000);
-	
-	
-	function foo() {
-	var currentDate = new Date();
-		document.getElementById("main").innerHTML = currentDate.getSeconds();
-	};	
+
+	setInterval(httpGetAsync,5000);
+	setInterval(getCurrentChat,5000);
+	//var refreshMessages = pullMessages(currentRecipient);
+	//setInterval(refreshMessages,5000);
 	//var foofunc = foo;
 	//setInterval(foofunc,500);
 	function ptc(thing) {
