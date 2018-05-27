@@ -77,6 +77,12 @@
 			<form id="submitMessage" action="/sendMessage" method="post">
 			<textarea rows='5' cols='100' name="message"></textarea>
 			<input type="submit" value="Send">
+			</form>
+			
+			<form id="attachFile" method="post" action="/sendFile" enctype="multipart/form-data">
+			Send File: <input type="file" name='myFile' maxlength=50 allow="media_type">
+			<input type="submit">
+			</form>
 		</div>
 		<div class= "sidebar">
 			Current online users:

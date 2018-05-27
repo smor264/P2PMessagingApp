@@ -17,6 +17,7 @@ listen_port = 10005
 import cherrypy
 from hashlib import sha256
 from urllib import urlencode
+import urllib
 import urllib2
 import socket
 import os.path
@@ -27,6 +28,7 @@ import atexit
 import calendar
 import time
 import logging
+from mimetypes import MimeTypes
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -166,7 +168,7 @@ class MainApp(object):
 
     @cherrypy.expose
     def ping(self, sender):
-        input_data = cherrypy.request.json
+        # input_data = cherrypy.request.json
         # raise cherrypy.HTTPRedirect('/')
         return '0'
 
@@ -232,9 +234,27 @@ class MainApp(object):
 
     @cherrypy.expose
     @cherrypy.tools.json_out()
-    def sendFile(self):
+    def sendFile(self, myFile):
+        data = myFile.file.read()
+        mime = MimeTypes()
+        fileurl = urllib.pathname2url(myFile.filename)
+        mime_type = mime.guess_type(fileurl)
+        sender = cherrypy.session.get('username')
+        destination = cherrypy.session.get('recipient')
+        stamp = str(calendar.timegm(time.gmtime()))
+        data = data.encode('base64')
 
-        return '0'
+        post = {'sender': sender, 'destination': destination, 'stamp': stamp, 'file': data, 'filename': myFile.filename, 'content_type': mime_type[0]}
+        post = json.dumps(post)
+        url = dbManager.getUserIP(destination)
+        port = dbManager.getUserPort(destination)
+        url = "http://" + url + ":" + port + "/receiveFile"
+        url = url.encode('ascii', 'ignore')
+        req = urllib2.Request(url)
+        req.add_header('Content-Type', 'application/json')
+        response = urllib2.urlopen(req, post)
+        print "Send File response is:" + response.read()
+        raise cherrypy.HTTPRedirect('/')
 
     @cherrypy.expose
     def messages(self, sender):
@@ -270,9 +290,9 @@ class MainApp(object):
 def runMainApp():
     # Create an instance of MainApp and tell Cherrypy to send all requests under / to it. (ie all of them)
     app = cherrypy.tree.mount(MainApp(), "/", "app.conf")
-    app.log.access_log.addFilter(IgnoreURLFilter('updateUserList?parameter=username'))
+    app.log.access_log.addFilter(IgnoreURLFilter('updateUserList'))
     app.log.access_log.addFilter(IgnoreURLFilter('currentChat'))
-    app.log.access_log.addFilter(IgnoreURLFilter('inbox?sender=None'))
+    app.log.access_log.addFilter(IgnoreURLFilter('inbox'))
 
     # Tell Cherrypy to listen for connections on the configured address and port.
     cherrypy.config.update({'server.socket_host': listen_ip,

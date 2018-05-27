@@ -28,6 +28,7 @@ a:hover{
 	position: absolute;
 	bottom: 0;
 	right: 200;
+	color: #FFFFFF;
 }
 @media screen and (max-width: 600px) {
 	.sidebar, .bodytext {
