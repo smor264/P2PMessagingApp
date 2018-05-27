@@ -132,6 +132,7 @@ class MainApp(object):
             raise cherrypy.HTTPRedirect('/login')
 
     @cherrypy.expose
+    @atexit.register
     def signout(self):
         """Logs the current user out, expires their session"""
         username = cherrypy.session.get('username')

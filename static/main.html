@@ -60,6 +60,14 @@
 	function ptc(thing) {
 		console.log(thing);
 	}
+	
+	window.onunload = WindowCloseHandler;
+	function WindowCloseHandler() {
+	url = "/signout"
+	var xmlhttp = new XMLHttpRequest();
+	xmlhttp.open("GET", url, true);
+	xmlhttp.send();
+	};
 	</script>
 <title>Welcome!</title>
 </header>
