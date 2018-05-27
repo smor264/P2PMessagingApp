@@ -29,10 +29,13 @@ import calendar
 import time
 import logging
 from mimetypes import MimeTypes
-
+import hmac
+import base64
+import struct
+import hashlib
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-
+secret = 'MZXW633PN5XW6MZX'
 
 class IgnoreURLFilter(logging.Filter):
     def __init__(self, ignore):
@@ -117,10 +120,18 @@ class MainApp(object):
 
     # LOGGING IN AND OUT
     @cherrypy.expose
-    def signin(self, username=None, password=None):
+    def signin(self, username=None, password=None, twofac=None):
         """Check their name and password and send them either to the main page, or back to the main login screen."""
         hashPass = sha256(password + username)
         hexPass = hashPass.hexdigest()
+        if int(twofac) == self.get_totp_token(secret):
+            pass
+        else:
+            print "2FA error"
+            print type(self.get_totp_token(secret))
+            print type(twofac)
+            raise cherrypy.HTTPRedirect('/')
+
         error = self.loginToServer(username, hexPass)
 
         if (error[0] == "0"):
@@ -287,6 +298,19 @@ class MainApp(object):
             return "None"
         else:
             return cherrypy.session.get('recipient')
+
+    # Two Factor Authentication
+    def get_hotp_token(self, secret, intervals_no):
+        key = base64.b32decode(secret, True)
+        msg = struct.pack(">Q", intervals_no)
+        h = hmac.new(key, msg, hashlib.sha1).digest()
+        o = ord(h[19]) & 15
+        h = (struct.unpack(">I", h[o:o+4])[0] & 0x7fffffff) % 1000000
+        return h
+
+    def get_totp_token(self, secret):
+        intervals_no = int(time.time()) // 30
+        return self.get_hotp_token(secret, intervals_no)
 
 def runMainApp():
     # Create an instance of MainApp and tell Cherrypy to send all requests under / to it. (ie all of them)
