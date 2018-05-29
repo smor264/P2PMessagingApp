@@ -1,6 +1,7 @@
 import sqlite3
 import json
 import cherrypy
+import datetime
 
 # Opens or creats a database with the name passed in
 def openDB(mydb):
@@ -17,6 +18,18 @@ def openDB(mydb):
 
 	db.commit()
 	db.close()
+
+def addNameToUserTable(name):
+	try:
+		db = sqlite3.connect('db/mydb')
+		cursor = db.cursor()
+		cursor.execute('''INSERT INTO users(name) VALUES(?)''',(name,))
+
+	except Exception as e:
+		db.rollback()
+		raise e
+	finally:
+		db.close()
 
 def addToUserTable(myDB, jsonUserList):
 	try:
@@ -131,11 +144,15 @@ def readMessages(sender):
 		cursor = db.cursor()
 		user = cherrypy.session.get('username')
 		messageLog = 'Messages from ' + sender + ': <br/>'
-		cursor.execute('''SELECT messages, stamp FROM messages WHERE (sender=? AND destination=?) OR (destination=? AND sender=?)''', (sender, user, sender, user))
+		cursor.execute('''SELECT messages, stamp, sender FROM messages WHERE (sender=? AND destination=?) OR (destination=? AND sender=?)''', (sender, user, sender, user))
 		all_rows = cursor.fetchall()
 		for row in all_rows:
 			# print row
-			messageLog += row[0] + " " + str(row[1]) + "<br/>"
+			time = datetime.datetime.fromtimestamp(row[1]).strftime('%Y-%m-%d %H:%M:%S')
+			if row[2] == sender:
+				messageLog += "<p class='sender'>" + row[0] + "<br/><font size='1'>" + str(time) + "</font></p>"
+			else:
+				messageLog += "<p class='receiver'>" + row[0] + "<br/><font size='1'>" + str(time) + "</font></p>"
 
 	except Exception as e:
 		db.rollback()

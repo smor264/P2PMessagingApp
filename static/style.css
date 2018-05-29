@@ -18,6 +18,13 @@ html,.background{
 	float: left;
 	width: 25%;
 }
+.bodytext .sender{
+	text-align: left;
+}
+.bodytext .receiver{
+	text-align: right;
+	color: #6699FF;
+}
 a{
 	color: inherit;
 }

@@ -1,7 +1,7 @@
 <html>
 <head>
-	<!--<link href="static/style.css" rel="stylesheet">
-	<script src="jquery-3.3.1.min.js"></script> -->
+	<link href="static/style.css" rel="stylesheet">
+	<script src="jquery-3.3.1.min.js"></script>
 </head>
 <header>
 	<script>
@@ -50,15 +50,15 @@
 	xmlhttp.send();
 	};
 	
-	//window.onload = getCurrentChat;
-	//window.onload = httpGetAsync;
-	document.onload = getCurrentChat;
-	document.onload = httpGetAsync;
+	window.onload = getCurrentChat;
+	window.onload = httpGetAsync;
+	//document.onload = getCurrentChat;
+	//document.onload = httpGetAsync;
 
 
 
 	setInterval(httpGetAsync,5000);
-	setInterval(getCurrentChat,5000);
+	setInterval(getCurrentChat,4000);
 	//var refreshMessages = pullMessages(currentRecipient);
 	//setInterval(refreshMessages,5000);
 	//var foofunc = foo;
@@ -75,7 +75,7 @@
 	xmlhttp.send();
 	};
 	
-		window.onload=function() {
+	window.onload=function() {
 	var textin = document.getElementById("submitMessage");
 	textin.addEventListener("keydown", function(e){
 		var key = e.which || e.keyCode;
@@ -83,7 +83,13 @@
 			sendMessage();
 		}
 	});
+	var signout = document.getElementById("signoutButton");
+	signout.addEventListener("click", function() {
+		WindowCloseHandler();
+		location.reload();
+	});
 	}
+	
 	
 	function sendMessage() {
 	message = document.getElementById("messageText").value;
@@ -106,7 +112,7 @@
 		<div class= "titletext">
 			<h1> Main </h1>
 			<form>
-				<input type="submit" value="signout" action="/signout" method="post">
+				<input type="button" id="signoutButton" value="Sign Out">
 			</form>
 		</div>
 		<div class= "bodytext">

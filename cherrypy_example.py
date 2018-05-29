@@ -19,9 +19,7 @@ from hashlib import sha256
 from urllib import urlencode
 import urllib
 import urllib2
-import socket
 import os.path
-import sqlite3
 import json
 import dbManager
 import atexit
@@ -64,8 +62,8 @@ class MainApp(object):
 	# Home Page -------------------------------------------------------------------
 	@cherrypy.expose
 	def index(self):
-		Page = "Welcome! This is a test website for COMPSYS302!<br/>"
 		try:
+			"""
 			userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
 			data = {'username': cherrypy.session.get('username'), 'password': cherrypy.session.get('password'), 'enc' : 0, 'json' : 1}
 			post = urlencode(data)
@@ -73,10 +71,29 @@ class MainApp(object):
 			resp = response.read()
 			# print resp
 			jsonUserList = json.loads(resp)
+			print resp
 
 			dbManager.openDB("mydb")
 			dbManager.addToUserTable("mydb", jsonUserList)
-			# dbManager.readUserTable("mydb")
+			dbManager.readUserTable("mydb")
+			"""
+			if cherrypy.session.get('username') is None:
+				Page = open(os.path.join('static', 'index.html'))
+				return Page
+
+			url = urllib2.Request('http://cs302.pythonanywhere.com/listUsers')
+			response = urllib2.urlopen(url).read()
+			print response
+			print type(response)
+			allUsersList = response.split(',')
+			allUsersList = [', '.join(allUsersList[n:]) for n in range(
+				len(allUsersList)
+			)]
+
+			print allUsersList
+			dbManager.openDB("mydb")
+			for name in allUsersList:
+				dbManager.addNameToUserTable(name)
 
 			Page = open(os.path.join('static', 'main.html'))
 
@@ -143,11 +160,11 @@ class MainApp(object):
 
 	def loginToServer(self, username, hexPass):
 		url = "http://cs302.pythonanywhere.com/report"
-		# my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()	  # public IP
-		my_ip = socket.gethostbyname(socket.gethostname())  # local IP
+		my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()	  # public IP
+		# my_ip = socket.gethostbyname(socket.gethostname())  # local IP
 		my_port = 10005
 		cherrypy.session['ip'] = my_ip
-		data = {'username': username, 'password': hexPass, "location": 0, 'ip': my_ip, 'port': my_port}
+		data = {'username': username, 'password': hexPass, "location": 2, 'ip': my_ip, 'port': my_port}
 		post = urlencode(data)
 		req = urllib2.Request(url, post)
 		response = urllib2.urlopen(req)
@@ -244,15 +261,6 @@ class MainApp(object):
 		print "Send File response is:" + response.read()
 		raise cherrypy.HTTPRedirect('/')
 
-	@cherrypy.expose
-	def messages(self, sender):
-		if cherrypy.session.get('username') is None:
-			Page = "Not logged in"
-		else:
-			Page = open(os.path.join('static', 'messages.html'))
-
-		return Page
-	
 	#Profiles---------------------------------------------------------------
 	@cherrypy.expose
 	def getProfile(self, profile_username, sender):
@@ -282,28 +290,30 @@ class MainApp(object):
 	@cherrypy.expose
 	def updateUserList(self, parameter):
 		username = cherrypy.session.get('username')
-		if(username != None):
+		if username is not None:
 			reportUrl = urllib2.Request('http://cs302.pythonanywhere.com/report')
 			userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
 			data = {'username': cherrypy.session.get('username'), 'password': cherrypy.session.get('password'), 'enc': 0,
-					'json': 1,'location': 0, 'port': 10005, 'ip': cherrypy.session.get('ip')}
+					'json': 1,'location': 2, 'port': 10005, 'ip': cherrypy.session.get('ip')}
 			post = urlencode(data)
 			userList = urllib2.urlopen(userListUrl, post)
 			report = urllib2.urlopen(reportUrl, post)
 			jsonUserList = userList.read()
 			jsonUserList = json.loads(jsonUserList)
-			print report.read()
-
+			# print report.read()
+			onlineUsers = list()
 			replyString = "<ul>"
 			for id in jsonUserList:
-				user = jsonUserList[id][parameter]
-				replyString += "<li>" + "<a href=javascript:pullMessages('" + user + "');>" + jsonUserList[id][parameter] + "</a></li>"
+				onlineUsers.append(str(jsonUserList[id][parameter]))
+
+			onlineUsers.sort()
+
+			for user in onlineUsers:
+				replyString += "<li>" + "<a href=javascript:pullMessages('" + user + "');>" + user + "</a></li>"
 
 			replyString += "</ul>"
 			return replyString
-
 		else:
-			print "Not Logged in"
 			return "Not logged in"
 
 	# HTML helpers ----------------------------------------------------------
@@ -313,7 +323,7 @@ class MainApp(object):
 			Page = "Not logged in"
 
 		elif sender == 'None':
-			Page = "Choose a user to start chatting"
+			Page = ""
 
 		else:
 			cherrypy.session['recipient'] = sender
@@ -324,10 +334,10 @@ class MainApp(object):
 	@cherrypy.expose
 	def currentChat(self):		
 		if cherrypy.session.get('recipient') is None:
-			print "No conversation selected"
+			# print "No conversation selected"
 			return "None"
 		else:
-			print "Trying to retrieve conversation with: " + cherrypy.session.get('recipient')
+			# print "Trying to retrieve conversation with: " + cherrypy.session.get('recipient')
 			return cherrypy.session.get('recipient')
 
 	# Two Factor Authentication ----------------------------------------------
@@ -345,7 +355,11 @@ class MainApp(object):
 
 def runMainApp():
 	# Create an instance of MainApp and tell Cherrypy to send all requests under / to it. (ie all of them)
-	app = cherrypy.tree.mount(MainApp(), "/", "app.conf")
+	app = cherrypy.tree.mount(MainApp(), "/",{'/': {'tools.staticdir.root': current_dir},
+							'/static': {
+								'tools.staticdir.on': True, #,
+								'tools.staticdir.dir': "static"
+								}}) 		# , "app.conf")
 	app.log.access_log.addFilter(IgnoreURLFilter('updateUserList'))
 	app.log.access_log.addFilter(IgnoreURLFilter('currentChat'))
 	app.log.access_log.addFilter(IgnoreURLFilter('inbox'))
@@ -353,7 +367,7 @@ def runMainApp():
 	# Tell Cherrypy to listen for connections on the configured address and port.
 	cherrypy.config.update({'server.socket_host': listen_ip,
 							'server.socket_port': listen_port,
-							'engine.autoreload.on': True
+							'engine.autoreload.on': True,
 							})
 
 	print "========================="
