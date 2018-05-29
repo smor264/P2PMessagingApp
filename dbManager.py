@@ -10,7 +10,7 @@ def openDB(mydb):
 					CREATE TABLE IF NOT EXISTS users(name TEXT PRIMARY KEY, location TEXT,
 									IP TEXT, port TEXT, lastlogin INTEGER)''')
 	cursor.execute('''
-					CREATE TABLE IF NOT EXISTS messages(messageID TEXT PRIMARY KEY, sender TEXT, 				destination TEXT, messages TEXT, stamp TEXT)''')
+					CREATE TABLE IF NOT EXISTS messages(messageID TEXT PRIMARY KEY, sender TEXT, 				destination TEXT, messages TEXT, stamp INTEGER)''')
 
 	cursor.execute('''
 		CREATE TABLE IF NOT EXISTS profiles(name TEXT PRIMARY KEY, lastUpdated INTEGER, fullname TEXT, position TEXT, description TEXT, location TEXT)''')
@@ -43,9 +43,13 @@ def addMessage(senderName, newMessage, stamp, destination):
 	try:
 		db = sqlite3.connect('db/mydb')
 		cursor = db.cursor()
+		stampString = str(stamp)
 
 		# Check for duplicate messages
-		messID = newMessage+stamp+senderName
+		messID = newMessage+stampString+senderName
+
+		stamp = int(stamp)
+		print type(stamp)
 
 		# Add the message
 		try:
@@ -131,7 +135,7 @@ def readMessages(sender):
 		all_rows = cursor.fetchall()
 		for row in all_rows:
 			# print row
-			messageLog += row[0] + " " + row[1] + "<br/>"
+			messageLog += row[0] + " " + str(row[1]) + "<br/>"
 
 	except Exception as e:
 		db.rollback()

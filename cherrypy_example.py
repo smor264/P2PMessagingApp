@@ -143,11 +143,11 @@ class MainApp(object):
 
 	def loginToServer(self, username, hexPass):
 		url = "http://cs302.pythonanywhere.com/report"
-		my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()	  # public IP
-		# my_ip = socket.gethostbyname(socket.gethostname())  # local IP
+		# my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()	  # public IP
+		my_ip = socket.gethostbyname(socket.gethostname())  # local IP
 		my_port = 10005
 		cherrypy.session['ip'] = my_ip
-		data = {'username': username, 'password': hexPass, "location": 1, 'ip': my_ip, 'port': my_port}
+		data = {'username': username, 'password': hexPass, "location": 0, 'ip': my_ip, 'port': my_port}
 		post = urlencode(data)
 		req = urllib2.Request(url, post)
 		response = urllib2.urlopen(req)
@@ -166,6 +166,8 @@ class MainApp(object):
 		senderName = input_data['sender']
 		newMessage = input_data['message']
 		stamp = input_data['stamp']
+		print stamp
+		print type(stamp)
 		destination = input_data['destination']
 		dbManager.addMessage(senderName, newMessage, stamp, destination)
 
@@ -284,7 +286,7 @@ class MainApp(object):
 			reportUrl = urllib2.Request('http://cs302.pythonanywhere.com/report')
 			userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
 			data = {'username': cherrypy.session.get('username'), 'password': cherrypy.session.get('password'), 'enc': 0,
-					'json': 1,'location': 1, 'port': 10005, 'ip': cherrypy.session.get('ip')}
+					'json': 1,'location': 0, 'port': 10005, 'ip': cherrypy.session.get('ip')}
 			post = urlencode(data)
 			userList = urllib2.urlopen(userListUrl, post)
 			report = urllib2.urlopen(reportUrl, post)
@@ -320,10 +322,12 @@ class MainApp(object):
 		return Page
 
 	@cherrypy.expose
-	def currentChat(self):
+	def currentChat(self):		
 		if cherrypy.session.get('recipient') is None:
+			print "No conversation selected"
 			return "None"
 		else:
+			print "Trying to retrieve conversation with: " + cherrypy.session.get('recipient')
 			return cherrypy.session.get('recipient')
 
 	# Two Factor Authentication ----------------------------------------------
@@ -342,7 +346,7 @@ class MainApp(object):
 def runMainApp():
 	# Create an instance of MainApp and tell Cherrypy to send all requests under / to it. (ie all of them)
 	app = cherrypy.tree.mount(MainApp(), "/", "app.conf")
-	# app.log.access_log.addFilter(IgnoreURLFilter('updateUserList'))
+	app.log.access_log.addFilter(IgnoreURLFilter('updateUserList'))
 	app.log.access_log.addFilter(IgnoreURLFilter('currentChat'))
 	app.log.access_log.addFilter(IgnoreURLFilter('inbox'))
 

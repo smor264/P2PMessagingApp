@@ -1,7 +1,7 @@
 <html>
 <head>
-	<link href="static/style.css" rel="stylesheet">
-	<script src="jquery-3.3.1.min.js"></script>
+	<!--<link href="static/style.css" rel="stylesheet">
+	<script src="jquery-3.3.1.min.js"></script> -->
 </head>
 <header>
 	<script>
@@ -38,18 +38,24 @@
 		currentRecipient = sender;
 		url = "/inbox?sender="+sender;
 		var xmlhttp = new XMLHttpRequest();
+		ptc("Requesting Message Log");
 		xmlhttp.onreadystatechange = function() {
 			if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
 				//console.log(xmlhttp.responseText);
 				document.getElementById("main").innerHTML = xmlhttp.responseText;
+				ptc("Message Log Received");
 				}	
 		};
 	xmlhttp.open("GET", url, true);
 	xmlhttp.send();
 	};
 	
-	window.onload = getCurrentChat;
-	window.onload = httpGetAsync;
+	//window.onload = getCurrentChat;
+	//window.onload = httpGetAsync;
+	document.onload = getCurrentChat;
+	document.onload = httpGetAsync;
+
+
 
 	setInterval(httpGetAsync,5000);
 	setInterval(getCurrentChat,5000);
@@ -86,8 +92,7 @@
 	var xmlhttp = new XMLHttpRequest();
 	xmlhttp.onreadystatechange = function() {
 		if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-			console.log(xmlhttp.responseText);
-			document.getElementById("messageText") = " ";
+			document.getElementById("messageText").value = "";
 			}
 	};
 	xmlhttp.open("POST", url, true);
