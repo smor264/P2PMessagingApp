@@ -68,6 +68,32 @@
 	xmlhttp.open("GET", url, true);
 	xmlhttp.send();
 	};
+	
+		window.onload=function() {
+	var textin = document.getElementById("submitMessage");
+	textin.addEventListener("keydown", function(e){
+		var key = e.which || e.keyCode;
+		if(key == 13) {
+			sendMessage();
+		}
+	});
+	}
+	
+	function sendMessage() {
+	message = document.getElementById("messageText").value;
+	url = "/sendMessage?message="+message;
+	ptc("1");
+	var xmlhttp = new XMLHttpRequest();
+	xmlhttp.onreadystatechange = function() {
+		if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+			console.log(xmlhttp.responseText);
+			document.getElementById("messageText") = " ";
+			}
+	};
+	xmlhttp.open("POST", url, true);
+	xmlhttp.send(message);
+	};
+	
 	</script>
 <title>Welcome!</title>
 </header>
@@ -85,9 +111,9 @@
 			
 		</div>
 		<div class= "chatbox">
-			<form id="submitMessage" action="/sendMessage" method="post">
-			<textarea rows='5' cols='100' name="message"></textarea>
-			<input type="submit" value="Send">
+			<form id="submitMessage">
+			<textarea id="messageText" name="message" rows='5' cols='100'></textarea>
+			<input type="button" value="Send Message">
 			</form>
 			
 			<form id="attachFile" method="post" action="/sendFile" enctype="multipart/form-data">
