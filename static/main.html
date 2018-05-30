@@ -5,7 +5,18 @@
 </head>
 <header>
 	<script>
-	var currentRecipient = "None"
+	var currentRecipient = "None";
+	
+	function httpGet(url, element) {		
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.onreadystatechange = function() {
+			if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+				document.getElementById(element).innerHTML = xmlhttp.responseText;
+				}	
+		};
+	xmlhttp.open("GET", url, true);
+	xmlhttp.send();
+	};
 	
 	function getCurrentChat() {		
 	url = "/currentChat";
@@ -19,7 +30,7 @@
 	xmlhttp.send();
 	};
 	
-	function httpGetAsync(){
+	function updateUserList(){
 		url = "/updateUserList?parameter=username";
 		var xmlhttp = new XMLHttpRequest();
 		xmlhttp.onreadystatechange = function() {
@@ -51,22 +62,17 @@
 	};
 	
 	window.onload = getCurrentChat;
-	window.onload = httpGetAsync;
-	//document.onload = getCurrentChat;
-	//document.onload = httpGetAsync;
+	window.onload = updateUserList;
 
-
-
-	setInterval(httpGetAsync,5000);
+	setInterval(updateUserList,5000);
 	setInterval(getCurrentChat,4000);
-	//var refreshMessages = pullMessages(currentRecipient);
-	//setInterval(refreshMessages,5000);
-	//var foofunc = foo;
-	//setInterval(foofunc,500);
+
+	//Prints to console
 	function ptc(thing) {
 		console.log(thing);
 	}
 	
+	//Signs out when browser closes
 	window.onunload = WindowCloseHandler;
 	function WindowCloseHandler() {
 	url = "/signout"
@@ -75,6 +81,7 @@
 	xmlhttp.send();
 	};
 	
+	//Listeners for button presses and keys
 	window.onload=function() {
 	var textin = document.getElementById("submitMessage");
 	textin.addEventListener("keydown", function(e){
@@ -87,6 +94,10 @@
 	signout.addEventListener("click", function() {
 		WindowCloseHandler();
 		location.reload();
+	});
+	var profile = document.getElementById("profileButton");
+	profile.addEventListener("click", function() {
+		httpGet("/inspectProfile", "main")
 	});
 	}
 	
@@ -111,9 +122,8 @@
 	<body>
 		<div class= "titletext">
 			<h1> Main </h1>
-			<form>
 				<input type="button" id="signoutButton" value="Sign Out">
-			</form>
+				<input type="button" id="profileButton" value="Profile">
 		</div>
 		<div class= "bodytext">
 			Successfully logged in! <br/><br/>

@@ -285,6 +285,62 @@ class MainApp(object):
 
 		return response
 
+	@cherrypy.expose
+	def updateProfile(self, fullname="None"):
+		raise cherrypy.HTTPRedirect('/')
+
+	@cherrypy.expose
+	def inspectProfile(self, profile):
+		url = dbManager.getUserIP(profile)
+		port = dbManager.getUserPort(profile)
+		url = "http://" + url + ":" + port + "/getProfile?profile_username=%s&sender=%s" % (profile, cherrypy.session.get('username'))
+		#p ost = {'profile_username': profile, 'sender': cherrypy.session.get('username')}
+		# post = json.dumps(post)
+		print url
+		req = urllib2.Request(url)
+		response = urllib2.urlopen(req)
+		response = json.loads(response.read())
+
+		if int(response['lastUpdated']) > dbManager.getLastUpdated(profile):
+			if response['lastUpdated'] is not None:
+				lastUpdated = response['lastUpdated']
+
+			if response['fullname'] is not None:
+				fullname = response['fullname']
+
+			if response['position'] is not None:
+				lastUpdated = response['position']
+
+			if response['description'] is not None:
+				description = response['description']
+
+			if response['location'] is not None:
+				location = response['location']
+
+			if response['picture'] is not None:
+				picture = response['picture']
+			dbManager.addProfile(profile, response['lastUpdated'], lastUpdated, fullname, description,location,picture)
+		else:
+			profileData = dbManager.readProfile(profile)
+
+		page = ''
+		if profileData == "NA":
+			page = "Profile not available"
+		elif profile == cherrypy.session.get('username'):
+			page += "<form action='updateProfile' method='post' enctype='multipart/form-data'>"
+			page += "Full Name: <input type='text' name='fullname' value='"+ profileData[2] +"'>"
+			page +=	"Position: <input type='text' name='position' value='" + profileData[3] + "'>"
+			page += "Description: <input type='text' name='description' value='" + profileData[4] + "'>"
+			page += "Location: <input type='text' name='location' value='" + profileData[5] + "'>"
+			page += "<input type='submit' value='Update Profile'>"
+			page += "</form>"
+		else:
+
+			page += "Full Name: " + profileData[2]
+			page += "Position: " + profileData[3]
+			page += "Description: " + profileData[4]
+			page += "Location: " + profileData[5]
+		return page
 
 	#Backend methods -------------------------------------------------------
 	@cherrypy.expose
@@ -309,7 +365,7 @@ class MainApp(object):
 			onlineUsers.sort()
 
 			for user in onlineUsers:
-				replyString += "<li>" + "<a href=javascript:pullMessages('" + user + "');>" + user + "</a></li>"
+				replyString += "<li>" + "<a href=javascript:pullMessages('" + user + "');>" + user + "</a> <a href='/inspectProfile?profile="+ user +  "'> Profile" "</a></li>"
 
 			replyString += "</ul>"
 			return replyString
