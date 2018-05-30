@@ -14,7 +14,7 @@ def openDB(mydb):
 					CREATE TABLE IF NOT EXISTS messages(messageID TEXT PRIMARY KEY, sender TEXT, destination TEXT, messages TEXT, stamp INTEGER)''')
 
 	cursor.execute('''
-		CREATE TABLE IF NOT EXISTS profiles(name TEXT PRIMARY KEY, lastUpdated INTEGER, fullname TEXT, position TEXT, description TEXT, location TEXT, picture BLOB)''')
+		CREATE TABLE IF NOT EXISTS profiles(name TEXT PRIMARY KEY, lastUpdated INTEGER, fullname TEXT, position TEXT, description TEXT, location TEXT, picture TEXT)''')
 
 	db.commit()
 	db.close()
@@ -23,7 +23,8 @@ def addNameToUserTable(name):
 	try:
 		db = sqlite3.connect('db/mydb')
 		cursor = db.cursor()
-		cursor.execute('''INSERT INTO users(name) VALUES(?)''',(name,))
+		cursor.execute('''INSERT OR REPLACE INTO users(name) VALUES(?)''', (name,))
+		db.commit()
 
 	except Exception as e:
 		db.rollback()
@@ -31,16 +32,16 @@ def addNameToUserTable(name):
 	finally:
 		db.close()
 
-def addToUserTable(myDB, jsonUserList):
+def addToUserTable(jsonUserList):
 	try:
-		db = sqlite3.connect('db/' + myDB)
+		db = sqlite3.connect('db/mydb')
 		cursor = db.cursor()
 		for id in jsonUserList:
 			name = jsonUserList[id]['username']
 			ip = jsonUserList[id]['ip']
 			port = jsonUserList[id]['port']
 			location = jsonUserList[id]['location']
-			lastLogin = jsonUserList[id]['lastLogin']
+			lastLogin = int(jsonUserList[id]['lastLogin'])
 			tableName = 'users'
 			cursor.execute('''
 							INSERT OR REPLACE INTO users(name, location, IP, port, lastlogin)
@@ -84,7 +85,7 @@ def addProfile(name, lastUpdated, fullName='NA', position='NA', description='NA'
 		db = sqlite3.connect('db/mydb')
 		cursor = db.cursor()
 		cursor.execute('''INSERT OR REPLACE INTO profiles(name, lastUpdated, fullname, position, 	description, location, picture) 
-		VALUES(?,?,?,?,?,?,?)''', (name, lastUpdated, fullName, position, description, location, buffer(picture)))
+		VALUES(?,?,?,?,?,?,?)''', (name, lastUpdated, fullName, position, description, location, picture))
 	
 	except Exception as e:
 		db.rollback()
@@ -161,6 +162,22 @@ def readMessages(sender):
 	finally:
 		db.close()
 		return messageLog
+
+def getAllUsers():
+	try:
+		db = sqlite3.connect('db/mydb')
+		cursor = db.cursor()
+		cursor.execute('''SELECT name FROM users''')
+		allUsers = cursor.fetchall()
+	
+	except Exception as e:
+		db.rollback()
+		raise e
+	finally:
+		db.close()
+		return allUsers
+
+
 
 def getUserIP(user):
 	try:
