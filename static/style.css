@@ -51,6 +51,12 @@ a{
 a:hover{
 	color: #00A0C6;
 }
+b{
+	color: #cc0000;
+}
+b:hover{
+	color: #00A0C6;
+}
 .chatbox{
 	position: absolute;
 	bottom: 0;
