@@ -1,7 +1,7 @@
 <html>
 <head>
 	<link href="static/style.css" rel="stylesheet">
-	<script src="jquery-3.3.1.min.js"></script>
+	<script src="static/jquery-3.3.1.js"></script>
 </head>
 <header>
 	<script>
@@ -35,13 +35,13 @@
 		var xmlhttp = new XMLHttpRequest();
 		xmlhttp.onreadystatechange = function() {
 			if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-				console.log(xmlhttp.responseText);
+				//console.log(xmlhttp.responseText);
 				document.getElementById("username").innerHTML = xmlhttp.responseText;
 				}	
 		};
 	xmlhttp.open("GET", url, true);
 	xmlhttp.send();
-	ptc(currentRecipient);
+	//ptc(currentRecipient);
 	pullMessages(currentRecipient);
 	};
 	
@@ -83,6 +83,8 @@
 	
 	//Listeners for button presses and keys
 	window.onload=function() {
+	document.getElementById('alert').style.display = 'none'
+	
 	var textin = document.getElementById("submitMessage");
 	textin.addEventListener("keydown", function(e){
 		var key = e.which || e.keyCode;
@@ -95,9 +97,11 @@
 		WindowCloseHandler();
 		location.reload();
 	});
-	var profile = document.getElementById("profileButton");
+	var profile = document.getElementById("twofac");
 	profile.addEventListener("click", function() {
-		httpGet("/inspectProfile", "main")
+		ptc("2FA button clicked");
+		document.getElementById('alert').style.display="block";
+		generateQRcode();
 	});
 	}
 	
@@ -116,6 +120,20 @@
 	xmlhttp.send(message);
 	};
 	
+	function generateQRcode() {
+	var web = "/getSecret";
+	var xmlhttp = new XMLHttpRequest();
+	xmlhttp.onreadystatechange = function() {
+		if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+			var data = xmlhttp.responseText;
+			ptc(data);
+			var url = 'https://chart.googleapis.com/chart?chs=200x200&chldL|0&cht=qr&chl=otpauth://totp/Smor264?secret='+data+'&issuer=smor264app'
+			$('#qrcode').attr('src', url);
+			}
+			};
+	xmlhttp.open("GET", web, true);
+	xmlhttp.send();
+	};
 	</script>
 <title>Welcome!</title>
 </header>
@@ -123,7 +141,18 @@
 		<div class= "titletext">
 			<h1> Main </h1>
 				<input type="button" id="signoutButton" value="Sign Out">
-				<input type="button" id="profileButton" value="Profile">
+				<input type="button" id="twofac" value="Enable Two Factor Authentication">
+		</div>
+		<div class='alert' id='alert'>
+			<span class='closebtn'
+				onclick='this.parentElement.style.display="none";'>&times;</span>
+				Two Factor Authentication code:
+				<img id='qrcode'
+					src = ''
+					alt= ''
+					title="Hello"
+					width='100'
+					height='100' />
 		</div>
 		<div class= "bodytext">
 			Successfully logged in! <br/><br/>

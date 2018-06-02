@@ -33,7 +33,7 @@ import struct
 import hashlib
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-secret = 'MZXW633PN5XW6MZX'
+#secret = 'MZXW633PN5XW6MZX'
 
 class IgnoreURLFilter(logging.Filter):
 	def __init__(self, ignore):
@@ -83,14 +83,12 @@ class MainApp(object):
 
 			url = urllib2.Request('http://cs302.pythonanywhere.com/listUsers')
 			response = urllib2.urlopen(url).read()
-			print response
-			print type(response)
+
 			allUsersList = response.split(',')
 			allUsersList = [', '.join(allUsersList[n:]) for n in range(
 				len(allUsersList)
 			)]
 
-			print allUsersList
 			dbManager.openDB("mydb")
 			for name in allUsersList:
 				dbManager.addNameToUserTable(name)
@@ -112,19 +110,19 @@ class MainApp(object):
 		return Page
 
 	@cherrypy.expose
-	def signin(self, username=None, password=None, twofac=None):
+	def signin(self, username=None, password=None, twofac=0):
 		"""Check their name and password and send them either to the main page, or back to the main login screen."""
 		hashPass = sha256(password + username)
 		hexPass = hashPass.hexdigest()
-		'''
-		if int(twofac) == self.get_totp_token(secret):
+
+		if int(twofac) == self.get_totp_token(base64.b32encode(username + "bas")) or dbManager.getTwoFacEnabled(username) == 0:
 			pass
 		else:
 			print "2FA error"
-			print type(self.get_totp_token(secret))
+			print type(self.get_totp_token(username + "bas"))
 			print type(twofac)
 			raise cherrypy.HTTPRedirect('/')
-		'''
+
 		error = self.loginToServer(username, hexPass)
 
 		if (error[0] == "0"):
@@ -183,8 +181,6 @@ class MainApp(object):
 		senderName = input_data['sender']
 		newMessage = input_data['message']
 		stamp = input_data['stamp']
-		print stamp
-		print type(stamp)
 		destination = input_data['destination']
 		dbManager.addMessage(senderName, newMessage, stamp, destination)
 
@@ -395,6 +391,23 @@ class MainApp(object):
 		else:
 			# print "Trying to retrieve conversation with: " + cherrypy.session.get('recipient')
 			return cherrypy.session.get('recipient')
+
+	@cherrypy.expose
+	def getSecret(self):
+		if cherrypy.session.get('username') is None:
+			return "0"
+		else:
+			username = cherrypy.session.get('username')
+			key  = base64.b32encode(username + "bas")
+			self.enable2FA()
+			print key
+			return key
+
+	@cherrypy.expose
+	def enable2FA(self):
+		dbManager.setTwoFacEnabled(cherrypy.session.get('username'), 1)
+		print "2FA enabled"
+		return '0'
 
 	# Two Factor Authentication ----------------------------------------------
 	def get_hotp_token(self, secret, intervals_no):

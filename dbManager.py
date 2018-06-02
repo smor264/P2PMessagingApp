@@ -9,7 +9,7 @@ def openDB(mydb):
 	cursor = db.cursor()
 	cursor.execute('''
 					CREATE TABLE IF NOT EXISTS users(name TEXT PRIMARY KEY, location TEXT,
-									IP TEXT, port TEXT, lastlogin INTEGER)''')
+									IP TEXT, port TEXT, lastlogin INTEGER, twofacEnabled INTEGER DEFAULT 0)''')
 	cursor.execute('''
 					CREATE TABLE IF NOT EXISTS messages(messageID TEXT PRIMARY KEY, sender TEXT, destination TEXT, messages TEXT, stamp INTEGER)''')
 
@@ -191,3 +191,31 @@ def getUserPort(user):
 	finally:
 		db.close()
 		return output[0]
+
+def getTwoFacEnabled(user):
+	try:
+		db = sqlite3.connect('db/mydb')
+		cursor = db.cursor()
+		cursor.execute('''SELECT twofacEnabled FROM users WHERE name=?''', (user,))
+		output = cursor.fetchone()
+
+	except ValueError as e:
+		db.rollback*()
+		print "user not found"
+		raise e
+
+	finally:
+		db.close()
+		return output
+
+def setTwoFacEnabled(user, value):
+	try:
+		db = sqlite3.connect('db/mydb')
+		cursor = db.cursor()
+		cursor.execute('''INSERT OR REPLACE INTO users(name, twofacEnabled) VALUES(?,?)''', (user, value))
+		db.commit()
+	except Exception as e:
+		db.rollback()
+		raise e
+	finally:
+		db.close()
