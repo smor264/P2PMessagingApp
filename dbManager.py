@@ -9,7 +9,7 @@ def openDB(mydb):
 	cursor = db.cursor()
 	cursor.execute('''
 					CREATE TABLE IF NOT EXISTS users(name TEXT PRIMARY KEY, location TEXT,
-									IP TEXT, port TEXT, lastlogin INTEGER, twofacEnabled INTEGER DEFAULT 0)''')
+									IP TEXT, port TEXT, lastlogin INTEGER, twofacEnabled INTEGER)''')
 	cursor.execute('''
 					CREATE TABLE IF NOT EXISTS messages(messageID TEXT PRIMARY KEY, sender TEXT, destination TEXT, messages TEXT, stamp INTEGER)''')
 
@@ -177,8 +177,6 @@ def getAllUsers():
 		db.close()
 		return allUsers
 
-
-
 def getUserIP(user):
 	try:
 		db = sqlite3.connect('db/mydb')
@@ -215,9 +213,10 @@ def getTwoFacEnabled(user):
 		cursor = db.cursor()
 		cursor.execute('''SELECT twofacEnabled FROM users WHERE name=?''', (user,))
 		output = cursor.fetchone()
+		print output
 
 	except ValueError as e:
-		db.rollback*()
+		db.rollback()
 		print "user not found"
 		raise e
 
@@ -229,10 +228,11 @@ def setTwoFacEnabled(user, value):
 	try:
 		db = sqlite3.connect('db/mydb')
 		cursor = db.cursor()
-		cursor.execute('''INSERT OR REPLACE INTO users(name, twofacEnabled) VALUES(?,?)''', (user, value))
+		cursor.execute('''UPDATE users SET twofacEnabled = ? WHERE name = ? ''', (value, user))
 		db.commit()
 	except Exception as e:
 		db.rollback()
 		raise e
 	finally:
 		db.close()
+		return '0'

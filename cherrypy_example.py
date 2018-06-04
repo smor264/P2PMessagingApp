@@ -113,13 +113,16 @@ class MainApp(object):
 		hashPass = sha256(password + username)
 		hexPass = hashPass.hexdigest()
 
-		if int(twofac) == self.get_totp_token(base64.b32encode(username + "bas")) or dbManager.getTwoFacEnabled(username) == 0:
-			pass
+		print "this users 2FA status is" + str(dbManager.getTwoFacEnabled(username)[0])
+		if dbManager.getTwoFacEnabled(username)[0] == 1:
+			if int(twofac) == self.get_totp_token(base64.b32encode(username + "bas")):
+				print "2FA success"
+				pass
+			else:
+				print "2FA error"
+				raise cherrypy.HTTPRedirect('/')
 		else:
-			print "2FA error"
-			print type(self.get_totp_token(username + "bas"))
-			print type(twofac)
-			raise cherrypy.HTTPRedirect('/')
+			pass
 
 		error = self.loginToServer(username, hexPass)
 
@@ -139,7 +142,7 @@ class MainApp(object):
 		url = "http://cs302.pythonanywhere.com/logoff"
 		data = {'username' : SignOutUsername, 'password' : SignOutPassword, 'enc' : 0}
 
-		if username is None:
+		if SignOutUsername is None:
 			print "not logged in"
 			pass
 		else:
@@ -156,11 +159,11 @@ class MainApp(object):
 
 	def loginToServer(self, username, hexPass):
 		url = "http://cs302.pythonanywhere.com/report"
-		# my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()	  # public IP
-		my_ip = socket.gethostbyname(socket.gethostname())  # local IP
+		my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()	  # public IP
+		# my_ip = socket.gethostbyname(socket.gethostname())  # local IP
 		my_port = 10005
 		cherrypy.session['ip'] = my_ip
-		data = {'username': username, 'password': hexPass, "location": 0, 'ip': my_ip, 'port': my_port}
+		data = {'username': username, 'password': hexPass, "location": 2, 'ip': my_ip, 'port': my_port}
 		post = urlencode(data)
 		req = urllib2.Request(url, post)
 		response = urllib2.urlopen(req)
@@ -339,7 +342,7 @@ class MainApp(object):
 			reportUrl = urllib2.Request('http://cs302.pythonanywhere.com/report')
 			userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
 			data = {'username': cherrypy.session.get('username'), 'password': cherrypy.session.get('password'), 'enc': 0,
-					'json': 1,'location': 0, 'port': 10005, 'ip': cherrypy.session.get('ip')}
+					'json': 1,'location': 2, 'port': 10005, 'ip': cherrypy.session.get('ip')}
 			post = urlencode(data)
 			userList = urllib2.urlopen(userListUrl, post)
 			report = urllib2.urlopen(reportUrl, post)
@@ -390,12 +393,12 @@ class MainApp(object):
 			# print "No conversation selected"
 			return "None"
 		else:
-			# print "Trying to retrieve conversation with: " + cherrypy.session.get('recipient')
 			return cherrypy.session.get('recipient')
 
 	@cherrypy.expose
 	def getSecret(self):
 		if cherrypy.session.get('username') is None:
+			print "no username"
 			return "0"
 		else:
 			username = cherrypy.session.get('username')
@@ -406,8 +409,14 @@ class MainApp(object):
 
 	@cherrypy.expose
 	def enable2FA(self):
-		dbManager.setTwoFacEnabled(cherrypy.session.get('username'), 1)
-		print "2FA enabled"
+		print "2FA status is: " + str(dbManager.getTwoFacEnabled(cherrypy.session.get('username'))[0])
+		if dbManager.getTwoFacEnabled(cherrypy.session.get('username'))[0] == 1:
+			dbManager.setTwoFacEnabled(cherrypy.session.get('username'), 0)
+			print "2FA disabled"
+		else:
+			dbManager.setTwoFacEnabled(cherrypy.session.get('username'), 1)
+			print "2FA enabled"
+		print "2FA status is: " + str(dbManager.getTwoFacEnabled(cherrypy.session.get('username'))[0])
 		return '0'
 
 	# Two Factor Authentication ----------------------------------------------
