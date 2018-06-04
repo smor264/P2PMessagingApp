@@ -116,10 +116,10 @@ class MainApp(object):
 		print "this users 2FA status is" + str(dbManager.getTwoFacEnabled(username)[0])
 		if dbManager.getTwoFacEnabled(username)[0] == 1:
 			if int(twofac) == self.get_totp_token(base64.b32encode(username + "bas")):
-				print "2FA success"
+				cherrypy.log("2FA success")
 				pass
 			else:
-				print "2FA error"
+				cherrypy.log("2FA error")
 				raise cherrypy.HTTPRedirect('/')
 		else:
 			pass
@@ -131,7 +131,7 @@ class MainApp(object):
 			cherrypy.session['password'] = hexPass
 			raise cherrypy.HTTPRedirect('/')
 		else:
-			print error
+			cherrypy.log("Error Logging in. Code: " + error)
 			raise cherrypy.HTTPRedirect('/login')
 
 	@cherrypy.expose
@@ -143,7 +143,7 @@ class MainApp(object):
 		data = {'username' : SignOutUsername, 'password' : SignOutPassword, 'enc' : 0}
 
 		if SignOutUsername is None:
-			print "not logged in"
+			cherrypy.log("not logged in")
 			pass
 		else:
 			post = urlencode(data)
@@ -201,9 +201,9 @@ class MainApp(object):
 		url = "http://" + url + ":" + port + "/receiveMessage"
 		url = url.encode('ascii', 'ignore')
 
-		print "Attempted Url is: " + url
-		print "Attempted Data is: "
-		print dataToPost
+		cherrypy.log("Attempted Url is: " + url)
+		cherrypy.log("Attempted Data is: ")
+		cherrypy.log(dataToPost)
 
 		post = json.dumps(dataToPost)
 		req = urllib2.Request(url)
@@ -226,7 +226,6 @@ class MainApp(object):
 		filename = input_data['filename']
 		content_type = input_data['content_type']
 		stamp = input_data['stamp']
-		# path = os.path.join(current_dir, 'db')
 
 		decodedfile = encodedfile.decode('base64')
 		savefile = open(filename, 'wb')
@@ -256,7 +255,7 @@ class MainApp(object):
 		req = urllib2.Request(url)
 		req.add_header('Content-Type', 'application/json')
 		response = urllib2.urlopen(req, post)
-		print "Send File response is:" + response.read()
+		cherrypy.log("Send File response is:" + response.read())
 		raise cherrypy.HTTPRedirect('/')
 
 	#Profiles---------------------------------------------------------------
@@ -452,6 +451,9 @@ def runMainApp():
 	cherrypy.config.update({'server.socket_host': listen_ip,
 							'server.socket_port': listen_port,
 							'engine.autoreload.on': True,
+							'log.access_file' : "access.log",
+							'log.error_file' : "error.log",
+							'log.screen' : False
 							})
 
 	print "========================="

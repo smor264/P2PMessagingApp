@@ -2,3 +2,5 @@
 dbManager\.pyc
 
 db/mydb
+
+*.log
