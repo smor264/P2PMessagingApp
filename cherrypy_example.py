@@ -32,9 +32,27 @@ import base64
 import struct
 import hashlib
 import socket
+import threading
+from threading import Timer, Thread, Event
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-#secret = 'MZXW633PN5XW6MZX'
+
+class MyThread(Thread):
+	def __init__(self, event):
+		Thread.__init__(self)
+		self.stopped = event
+		self.username = ''
+		self.password = ''
+		self.ip = ''
+
+	def run(self):
+		while not self.stopped.wait(30.0):
+			MainApp().reportToServer(self.username, self.password, self.ip)
+
+	def updateDetails(self, username, password, ip):
+		self.username = username
+		self.password = password
+		self.ip = ip
 
 class IgnoreURLFilter(logging.Filter):
 	def __init__(self, ignore):
@@ -49,7 +67,9 @@ class MainApp(object):
 				  'tools.encode.encoding': 'utf-8',
 				  'tools.sessions.on': 'True',
 				  }
-	
+
+	stopFlag = Event()
+
 	# If they try somewhere we don't know, catch it here and send them to the right place.
 	@cherrypy.expose
 	def default(self, *args, **kwargs):
@@ -63,7 +83,9 @@ class MainApp(object):
 	@cherrypy.expose
 	def index(self):
 		try:
-			
+			stopFlag = Event()
+			thread.updateDetails(cherrypy.session.get('username'), cherrypy.session.get('password'), cherrypy.session.get('ip'))
+
 			userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
 			data = {'username': cherrypy.session.get('username'), 'password': cherrypy.session.get('password'), 'enc' : 0, 'json' : 1}
 			post = urlencode(data)
@@ -85,6 +107,7 @@ class MainApp(object):
 			response = urllib2.urlopen(url).read()
 
 			allUsersList = response.split(',')
+
 			
 			# print allUsersList
 			dbManager.openDB("mydb")
@@ -95,6 +118,7 @@ class MainApp(object):
 
 		except (KeyError, ValueError):  # There is no username
 			Page = open(os.path.join('static', 'index.html'))
+			stopFlag.set()
 		return Page
 
 
@@ -137,7 +161,7 @@ class MainApp(object):
 			raise cherrypy.HTTPRedirect('/login')
 
 	@cherrypy.expose
-	def signout(self):
+	def signout(self, thread):
 		"""Logs the current user out, expires their session"""
 		SignOutUsername = cherrypy.session.get('username')
 		SignOutPassword = cherrypy.session.get('password')
@@ -155,17 +179,18 @@ class MainApp(object):
 			del cherrypy.session['username']
 			del cherrypy.session['password']
 			cherrypy.lib.sessions.expire()
+			print "Logged Off Successfully"
 
 		raise cherrypy.HTTPRedirect('/')
 
 
 	def loginToServer(self, username, hexPass):
 		url = "http://cs302.pythonanywhere.com/report"
-		# my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()	  # public IP
-		my_ip = socket.gethostbyname(socket.gethostname())  # local IP
+		my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()	  # public IP
+		# my_ip = socket.gethostbyname(socket.gethostname())  # local IP
 		my_port = 10005
 		cherrypy.session['ip'] = my_ip
-		data = {'username': username, 'password': hexPass, "location": 0, 'ip': my_ip, 'port': my_port}
+		data = {'username': username, 'password': hexPass, "location": 2, 'ip': my_ip, 'port': my_port}
 		post = urlencode(data)
 		req = urllib2.Request(url, post)
 		response = urllib2.urlopen(req)
@@ -373,7 +398,7 @@ class MainApp(object):
 			reportUrl = urllib2.Request('http://cs302.pythonanywhere.com/report')
 			userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
 			data = {'username': cherrypy.session.get('username'), 'password': cherrypy.session.get('password'), 'enc': 0,
-					'json': 1,'location': 0, 'port': 10005, 'ip': cherrypy.session.get('ip')}
+					'json': 1,'location': 2, 'port': 10005, 'ip': cherrypy.session.get('ip')}
 			post = urlencode(data)
 			userList = urllib2.urlopen(userListUrl, post)
 			report = urllib2.urlopen(reportUrl, post)
@@ -402,6 +427,21 @@ class MainApp(object):
 			return replyString
 		else:
 			return "Not logged in"
+
+	def reportToServer(self, username, password, ip):
+		if cherrypy.engine.state != cherrypy.engine.states.STARTED:
+			return
+
+		if username is not None:
+			reportUrl = urllib2.Request('http://cs302.pythonanywhere.com/report')
+			data = {'username': username, 'password': password, 'enc': 0,
+					'json': 1, 'location': 2, 'port': 10005, 'ip': ip}
+			post = urlencode(data)
+			report = urllib2.urlopen(reportUrl, post)
+			print "Report Complete, Response: " + report.read()
+		else:
+			print "Failed to Report"
+		return
 
 	# HTML helpers ----------------------------------------------------------
 	@cherrypy.expose
@@ -502,7 +542,9 @@ def runMainApp():
 
 	# And stop doing anything else. Let the web server take over.
 	cherrypy.engine.block()
-	
+
+	stopFlag = Event()
+	thread = MyThread(stopFlag)
 	atexit.register(server.signout())
 
 # Run the function to start everything
