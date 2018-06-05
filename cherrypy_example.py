@@ -2,8 +2,8 @@
 """ cherrypy_example.py
 
 	COMPSYS302 - Software Design
-	Author: Andrew Chen (andrew.chen@auckland.ac.nz)
-	Last Edited: 19/02/2018
+	Author: Sam Morgan (smor264@aucklanduni.ac.nz)
+	Last Edited: 06/06/2018
 
 	This program uses the CherryPy web server (from www.cherrypy.org).
 """
@@ -38,16 +38,21 @@ from threading import Timer, Thread, Event
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
 class MyThread(Thread):
-	def __init__(self, event):
+	def __init__(self):
 		Thread.__init__(self)
-		self.stopped = event
+		self.stopped = False
 		self.username = ''
 		self.password = ''
 		self.ip = ''
 
 	def run(self):
-		while not self.stopped.wait(30.0):
+		while not self.stopped:
+			for i in range(30):
+				time.sleep(1)
+				print "Thread waiting...."
+
 			MainApp().reportToServer(self.username, self.password, self.ip)
+		
 
 	def updateDetails(self, username, password, ip):
 		self.username = username
@@ -68,7 +73,8 @@ class MainApp(object):
 				  'tools.sessions.on': 'True',
 				  }
 
-	stopFlag = Event()
+	def __init__(self):
+		self.thread = MyThread()
 
 	# If they try somewhere we don't know, catch it here and send them to the right place.
 	@cherrypy.expose
@@ -83,8 +89,9 @@ class MainApp(object):
 	@cherrypy.expose
 	def index(self):
 		try:
-			stopFlag = Event()
-			thread.updateDetails(cherrypy.session.get('username'), cherrypy.session.get('password'), cherrypy.session.get('ip'))
+			if cherrypy.session.get('username') is not None:
+				self.thread.updateDetails(cherrypy.session.get('username'), cherrypy.session.get('password'), cherrypy.session.get('ip'))
+				# self.thread.run()
 
 			userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
 			data = {'username': cherrypy.session.get('username'), 'password': cherrypy.session.get('password'), 'enc' : 0, 'json' : 1}
@@ -118,7 +125,6 @@ class MainApp(object):
 
 		except (KeyError, ValueError):  # There is no username
 			Page = open(os.path.join('static', 'index.html'))
-			stopFlag.set()
 		return Page
 
 
@@ -167,6 +173,7 @@ class MainApp(object):
 		SignOutPassword = cherrypy.session.get('password')
 		url = "http://cs302.pythonanywhere.com/logoff"
 		data = {'username' : SignOutUsername, 'password' : SignOutPassword, 'enc' : 0}
+		self.thread.stopped = True
 
 		if SignOutUsername is None:
 			cherrypy.log("not logged in")
@@ -186,11 +193,11 @@ class MainApp(object):
 
 	def loginToServer(self, username, hexPass):
 		url = "http://cs302.pythonanywhere.com/report"
-		my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()	  # public IP
-		# my_ip = socket.gethostbyname(socket.gethostname())  # local IP
+		# my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()	  # public IP
+		my_ip = socket.gethostbyname(socket.gethostname())  # local IP
 		my_port = 10005
 		cherrypy.session['ip'] = my_ip
-		data = {'username': username, 'password': hexPass, "location": 2, 'ip': my_ip, 'port': my_port}
+		data = {'username': username, 'password': hexPass, "location": 0, 'ip': my_ip, 'port': my_port}
 		post = urlencode(data)
 		req = urllib2.Request(url, post)
 		response = urllib2.urlopen(req)
@@ -351,9 +358,19 @@ class MainApp(object):
 		lastUpdated = response.get('lastUpdated')
 		fullname = response.get('fullname')
 		position = response.get('position')
-		description = response.get('description')
+		description =  response.get('description')
 		location = response.get('location')
 		picture = response.get('picture')
+
+		if isinstance(fullname, str):
+			lastUpdated = str(lastUpdated)
+			fullname = str(fullname)
+			position = str(position)
+			description =  str(description)
+			location = str(location)
+			picture = str(picture)
+		elif isinstance(fullname, unicode):
+			lastUpdated = 
 
 		dbManager.addProfile(profile, lastUpdated, fullname, position, description, location, picture)
 
@@ -398,7 +415,7 @@ class MainApp(object):
 			reportUrl = urllib2.Request('http://cs302.pythonanywhere.com/report')
 			userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
 			data = {'username': cherrypy.session.get('username'), 'password': cherrypy.session.get('password'), 'enc': 0,
-					'json': 1,'location': 2, 'port': 10005, 'ip': cherrypy.session.get('ip')}
+					'json': 1,'location': 0, 'port': 10005, 'ip': cherrypy.session.get('ip')}
 			post = urlencode(data)
 			userList = urllib2.urlopen(userListUrl, post)
 			report = urllib2.urlopen(reportUrl, post)
@@ -429,13 +446,10 @@ class MainApp(object):
 			return "Not logged in"
 
 	def reportToServer(self, username, password, ip):
-		if cherrypy.engine.state != cherrypy.engine.states.STARTED:
-			return
-
 		if username is not None:
 			reportUrl = urllib2.Request('http://cs302.pythonanywhere.com/report')
 			data = {'username': username, 'password': password, 'enc': 0,
-					'json': 1, 'location': 2, 'port': 10005, 'ip': ip}
+					'json': 1, 'location': 0, 'port': 10005, 'ip': ip}
 			post = urlencode(data)
 			report = urllib2.urlopen(reportUrl, post)
 			print "Report Complete, Response: " + report.read()
@@ -543,8 +557,6 @@ def runMainApp():
 	# And stop doing anything else. Let the web server take over.
 	cherrypy.engine.block()
 
-	stopFlag = Event()
-	thread = MyThread(stopFlag)
 	atexit.register(server.signout())
 
 # Run the function to start everything

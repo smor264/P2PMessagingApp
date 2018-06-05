@@ -5,9 +5,9 @@ html,.background{
 .bodytext{
 	color: #FFFFFF; /*font color */
 	text-align: center;
+	margin: auto;
 	float: right;
-	width: 75%
-	overflow-y: scroll;
+	width: 75%;
 	border: 3px solid blue;
 }
 .titletext{
