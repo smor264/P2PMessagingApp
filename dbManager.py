@@ -14,7 +14,7 @@ def openDB(mydb):
 					CREATE TABLE IF NOT EXISTS messages(messageID TEXT PRIMARY KEY, sender TEXT, destination TEXT, messages TEXT, stamp INTEGER)''')
 
 	cursor.execute('''
-		CREATE TABLE IF NOT EXISTS profiles(name TEXT PRIMARY KEY, lastUpdated INTEGER, fullname TEXT, position TEXT, description TEXT, location TEXT, picture TEXT)''')
+		CREATE TABLE IF NOT EXISTS profiles(name TEXT PRIMARY KEY, lastUpdated INTEGER DEFAULT 0, fullname TEXT, position TEXT, description TEXT, location TEXT, picture TEXT)''')
 
 	db.commit()
 	db.close()
@@ -84,8 +84,9 @@ def addProfile(name, lastUpdated, fullName='NA', position='NA', description='NA'
 	try:
 		db = sqlite3.connect('db/mydb')
 		cursor = db.cursor()
-		cursor.execute('''INSERT OR REPLACE INTO profiles(name, lastUpdated, fullname, position, 	description, location, picture) 
-		VALUES(?,?,?,?,?,?,?)''', (name, lastUpdated, fullName, position, description, location, picture))
+		cursor.execute('''INSERT OR REPLACE INTO profiles(name, lastUpdated, fullname, position, description, location, picture) 
+								VALUES(?,?,?,?,?,?,?)''', (name, lastUpdated, fullName, position, description, location, picture))
+		db.commit()
 	
 	except Exception as e:
 		db.rollback()
@@ -99,12 +100,12 @@ def readProfile(name):
 		cursor = db.cursor()
 		data = tuple()
 
-		cursor.execute('''SELECT lastUpdated, fullname, position, description, location FROM profiles WHERE name = ?''', (name,))	
+		cursor.execute('''SELECT lastUpdated, fullname, position, description, location, picture FROM profiles WHERE name = ?''', (name,))	
 		data = cursor.fetchall()
 
 	except ValueError as e:
 		print "Name does not exist in database"
-		return "NA"
+		return ('NA', 'NA', 'NA', 'NA', 'NA', 'NA') # BATMAN
 
 	finally:
 		db.close()
@@ -212,13 +213,13 @@ def getTwoFacEnabled(user):
 		db = sqlite3.connect('db/mydb')
 		cursor = db.cursor()
 		cursor.execute('''SELECT twofacEnabled FROM users WHERE name=?''', (user,))
+		output = 0
 		output = cursor.fetchone()
-		print output
 
 	except ValueError as e:
 		db.rollback()
 		print "user not found"
-		raise e
+		return 0
 
 	finally:
 		db.close()
@@ -228,11 +229,15 @@ def setTwoFacEnabled(user, value):
 	try:
 		db = sqlite3.connect('db/mydb')
 		cursor = db.cursor()
-		cursor.execute('''UPDATE users SET twofacEnabled = ? WHERE name = ? ''', (value, user))
+		cursor.execute('''UPDATE users SET twofacEnabled = ? WHERE name = ?''', (value, user))
 		db.commit()
+
 	except Exception as e:
+		print "Failed to update 2FA"
 		db.rollback()
 		raise e
 	finally:
+		print "Closing database"
 		db.close()
-		return '0'
+
+	return '0'

@@ -110,19 +110,21 @@ class MainApp(object):
 	@cherrypy.expose
 	def signin(self, username=None, password=None, twofac=0):
 		"""Check their name and password and send them either to the main page, or back to the main login screen."""
+		dbManager.openDB('mydb')
 		hashPass = sha256(password + username)
 		hexPass = hashPass.hexdigest()
-
-		print "this users 2FA status is" + str(dbManager.getTwoFacEnabled(username)[0])
-		if dbManager.getTwoFacEnabled(username)[0] == 1:
-			if int(twofac) == self.get_totp_token(base64.b32encode(username + "bas")):
-				cherrypy.log("2FA success")
-				pass
+		
+		if dbManager.getTwoFacEnabled(username) is not None:
+			print "this users 2FA status is" + str(dbManager.getTwoFacEnabled(username)[0])
+			if dbManager.getTwoFacEnabled(username)[0] == 1:
+				if int(twofac) == self.get_totp_token(base64.b32encode(username + "bas")):
+					cherrypy.log("2FA success")
+					pass
+				else:
+					cherrypy.log("2FA error")
+					raise cherrypy.HTTPRedirect('/')
 			else:
-				cherrypy.log("2FA error")
-				raise cherrypy.HTTPRedirect('/')
-		else:
-			pass
+				pass
 
 		error = self.loginToServer(username, hexPass)
 
@@ -159,11 +161,11 @@ class MainApp(object):
 
 	def loginToServer(self, username, hexPass):
 		url = "http://cs302.pythonanywhere.com/report"
-		my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()	  # public IP
-		# my_ip = socket.gethostbyname(socket.gethostname())  # local IP
+		# my_ip = urllib2.urlopen('http://ip.42.pl/raw').read()	  # public IP
+		my_ip = socket.gethostbyname(socket.gethostname())  # local IP
 		my_port = 10005
 		cherrypy.session['ip'] = my_ip
-		data = {'username': username, 'password': hexPass, "location": 2, 'ip': my_ip, 'port': my_port}
+		data = {'username': username, 'password': hexPass, "location": 0, 'ip': my_ip, 'port': my_port}
 		post = urlencode(data)
 		req = urllib2.Request(url, post)
 		response = urllib2.urlopen(req)
@@ -203,7 +205,7 @@ class MainApp(object):
 
 		cherrypy.log("Attempted Url is: " + url)
 		cherrypy.log("Attempted Data is: ")
-		cherrypy.log(dataToPost)
+		cherrypy.log(str(dataToPost))
 
 		post = json.dumps(dataToPost)
 		req = urllib2.Request(url)
@@ -259,9 +261,11 @@ class MainApp(object):
 		raise cherrypy.HTTPRedirect('/')
 
 	#Profiles---------------------------------------------------------------
+	#GET PROFILE
 	@cherrypy.expose
 	@cherrypy.tools.json_in()
 	def getProfile(self):
+		print "________--------_____ We made it to getProfile"
 		input_data = cherrypy.request.json
 		profile_username = input_data['profile_username']
 		sender = input_data['sender']
@@ -269,68 +273,96 @@ class MainApp(object):
 		position = 'NA'
 		description = 'NA'
 		location = 'NA'
-		profileData = dbManager.readProfile(profile_username)
+		picture = 'NA'
+		lastUpdated = 0
 
+		profileData = dbManager.readProfile(profile_username)
+		print "The profile data for " + profile_username + " is: " + str(profileData)
+		print "The Last Updated field is" + str(dbManager.getLastUpdated(profile_username))
+		
 		if dbManager.getLastUpdated(profile_username) is None:
 			lastUpdated = 0
-
-		else:
+		elif dbManager.getLastUpdated(profile_username)[0] != 0:
+			print "Using the Up-to-date profile"
 			lastUpdated = dbManager.getLastUpdated(profile_username)
-			fullname = profileData[1]
-			position = profileData[2]
-			description = profileData[3]
-			location = profileData[4]
+			fullname = profileData[0][1]
+			position = profileData[0][2]
+			description = profileData[0][3]
+			location = profileData[0][4]
+			picture = profileData[0][5]
 		
+		print "Sending the response"
 		response = {'lastUpdated': lastUpdated, 'fullname': fullname, 'position': position, 'description': description, 'location': location}
 		response = json.dumps(response)
 
 		return response
-
+	
+	#UPDATE PROFILE
 	@cherrypy.expose
-	def updateProfile(self, fullname="None"):
+	def updateProfile(self, fullname, position, description, location, myFile):
+		lastUpdated = int(calendar.timegm(time.gmtime()))
+		myFile = myFile.read()
+		user = cherrypy.session.get('username')
+		print "-------------------------------------User is: " + user
+		print "fullname is: " + fullname
+		print "file name is: " + myFile
+		dbManager.addProfile(user, lastUpdated, fullname, position, description, location, myFile) 
 		raise cherrypy.HTTPRedirect('/')
-
+	
+	#INSPECT PROFILE
 	@cherrypy.expose
 	def inspectProfile(self, profile):
 		url = dbManager.getUserIP(profile)
 		port = dbManager.getUserPort(profile)
-		url = "http://" + url + ":" + port + "/getProfile"
+		url = "http://" + url + ":" + port
+		url1 = url + "/getProfile"
 		post = {'profile_username': profile, 'sender': cherrypy.session.get('username')}
 		post = json.dumps(post)
-		req = urllib2.Request(url)
+		req = urllib2.Request(url1)
 		req.add_header('Content-Type', 'application/json')
 		response = urllib2.urlopen(req, post)
 		response = json.loads(response.read())
+			
+		lastUpdated = response.get('lastUpdated')
+		fullname = response.get('fullname')
+		position = response.get('position')
+		description = response.get('description')
+		location = response.get('location')
+		picture = response.get('picture')
 
-		if int(response['lastUpdated']) > dbManager.getLastUpdated(profile):
-			lastUpdated = response.get('lastUpdated')
-			fullname = response.get('fullname')
-			lastUpdated = response.get('position')
-			description = response.get('description')
-			location = response.get('location')
-			picture = response.get('picture')
-			dbManager.addProfile(profile, lastUpdated, lastUpdated, fullname, description,location,picture)
-		else:
-			profileData = dbManager.readProfile(profile)
+		dbManager.addProfile(profile, lastUpdated, fullname, position, description, location, picture)
 
 		profileData = dbManager.readProfile(profile)
+		print "Profile data is: " + str(profileData)
 		page = ''
-		if profileData == "NA":
-			page = "Profile not available"
-		elif profile == cherrypy.session.get('username'):
-			page += "<form action='updateProfile' method='post' enctype='multipart/form-data'>"
-			page += "Full Name: <input type='text' name='fullname' value='"+ profileData[2] +"'>"
-			page +=	"Position: <input type='text' name='position' value='" + profileData[3] + "'>"
-			page += "Description: <input type='text' name='description' value='" + profileData[4] + "'>"
-			page += "Location: <input type='text' name='location' value='" + profileData[5] + "'>"
+		if profile == cherrypy.session.get('username'):
+			page += "<form action='/updateProfile' method='post' enctype='multipart/form-data'><br/>"
+			page += "Full Name: <input type='text' name='fullname' value='"+ fullname +"'><br/>"
+			page +=	"Position: <input type='text' name='position' value='" + position + "'><br/>"
+			page += "Description: <input type='text' name='description' value='" + description + "'><br/>"
+			page += "Location: <input type='text' name='location' value='" + location + "'><br/>"
+			page += "Picture: <input type='image' name='image' value='choose an image'>"
+			page += "<input type='file' name='myFile' maxlength=50 allow='image/*'>"
 			page += "<input type='submit' value='Update Profile'>"
 			page += "</form>"
 		else:
 
-			page += "Full Name: " + profileData[2]
-			page += "Position: " + profileData[3]
-			page += "Description: " + profileData[4]
-			page += "Location: " + profileData[5]
+			page += "Full Name: " + str(fullname) + "</br>"
+			page += "Position: " + str(position) + "</br>"
+			page += "Description: " + str(description) + "</br>"
+			page += "Location: " + str(location) + "</br>"
+
+		# Save a local copy of the profile picture
+		try:
+			response = urllib2.urlopen(picture)
+			pic = response.read()
+			savedpic = open("profiles/" + profile, "wb")
+			savedpic.write(pic)
+			page += "Picture: <img src='/profiles/" + profile + "'>"
+		#else use a default placeholder
+		except AttributeError as e:
+			page += "Picture: <img src='static/default.png' >"
+			
 		return page
 
 	#Backend methods -------------------------------------------------------
@@ -341,7 +373,7 @@ class MainApp(object):
 			reportUrl = urllib2.Request('http://cs302.pythonanywhere.com/report')
 			userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
 			data = {'username': cherrypy.session.get('username'), 'password': cherrypy.session.get('password'), 'enc': 0,
-					'json': 1,'location': 2, 'port': 10005, 'ip': cherrypy.session.get('ip')}
+					'json': 1,'location': 0, 'port': 10005, 'ip': cherrypy.session.get('ip')}
 			post = urlencode(data)
 			userList = urllib2.urlopen(userListUrl, post)
 			report = urllib2.urlopen(reportUrl, post)
@@ -403,19 +435,19 @@ class MainApp(object):
 			username = cherrypy.session.get('username')
 			key  = base64.b32encode(username + "bas")
 			self.enable2FA()
-			print key
+			print "2FA status is: " + str(dbManager.getTwoFacEnabled(username)[0])
 			return key
 
 	@cherrypy.expose
 	def enable2FA(self):
-		print "2FA status is: " + str(dbManager.getTwoFacEnabled(cherrypy.session.get('username'))[0])
-		if dbManager.getTwoFacEnabled(cherrypy.session.get('username'))[0] == 1:
-			dbManager.setTwoFacEnabled(cherrypy.session.get('username'), 0)
-			print "2FA disabled"
-		else:
-			dbManager.setTwoFacEnabled(cherrypy.session.get('username'), 1)
-			print "2FA enabled"
-		print "2FA status is: " + str(dbManager.getTwoFacEnabled(cherrypy.session.get('username'))[0])
+		username = cherrypy.session.get('username')
+		# print "2FA status is: " + str(dbManager.getTwoFacEnabled(username)[0])
+		# if dbManager.getTwoFacEnabled(username)[0] == 1:
+		# 	dbManager.setTwoFacEnabled(username, 0)
+		#	print "2FA disabled"
+		# else:
+		dbManager.setTwoFacEnabled(username, 1)
+
 		return '0'
 
 	# Two Factor Authentication ----------------------------------------------
@@ -442,6 +474,9 @@ def runMainApp():
 							'/static': {
 								'tools.staticdir.on': True, 
 								'tools.staticdir.dir': "static"
+							}, '/profiles': {
+									'tools.staticdir.on': True,
+									'tools.staticdir.dir': "profiles"
 								}}) 		
 	app.log.access_log.addFilter(IgnoreURLFilter('updateUserList'))
 	app.log.access_log.addFilter(IgnoreURLFilter('currentChat'))
@@ -453,7 +488,7 @@ def runMainApp():
 							'engine.autoreload.on': True,
 							'log.access_file' : "access.log",
 							'log.error_file' : "error.log",
-							'log.screen' : False
+							'log.screen' : True
 							})
 
 	print "========================="

@@ -4,3 +4,5 @@ dbManager\.pyc
 db/mydb
 
 *.log
+
+profiles/
