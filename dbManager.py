@@ -18,7 +18,7 @@ def openDB(mydb):
 
 	db.commit()
 	db.close()
-
+# Adds users to table
 def addNameToUserTable(name):
 	try:
 		db = sqlite3.connect('db/mydb')

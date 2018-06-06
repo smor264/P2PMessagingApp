@@ -281,7 +281,7 @@ class MainApp(object):
 		req.add_header('Content-Type', 'application/json')
 		response = urllib2.urlopen(req, post)
 
-		if response.read() == '0' and recipient != username:
+		if response.read()[0] == '0' and recipient != username:
 			dbManager.addMessage(username, message, currentTime, recipient)
 		raise cherrypy.HTTPRedirect('/')
 
@@ -302,8 +302,15 @@ class MainApp(object):
 		savefile = open('downloads/'+filename, 'wb')
 		savefile.write(decodedfile)
 
-		# Lets the user know they have recieved a file
-		dbManager.addMessage(sender, sender+" sent a file", stamp, destination)
+		# Lets the user know they have recieved a file, embeds it if possible
+		if 'image' in content_type:
+			dbManager.addMessage(sender, "<img src= 'data:"+ content_type + "; base64, " + encodedfile + "'/>", stamp, destination)
+		elif 'audio' in content_type:
+			dbManager.addMessage(sender, "<audio src= 'data:"+ content_type + "; base64, " + encodedfile + "'/>", stamp, destination)
+		elif 'video' in content_type:
+			dbManager.addMessage(sender, "<video src= 'data:"+ content_type + "; base64, " + encodedfile + "'/>", stamp, destination)
+		else:
+			dbManager.addMessage(sender, sender + " sent a file", stamp, destination)
 
 		return '0'
 
@@ -332,8 +339,18 @@ class MainApp(object):
 		response = urllib2.urlopen(req, post)
 		cherrypy.log("Send File response is:" + response.read())
 
-		# Lets the user know they have received a file
-		dbManager.addMessage(cherrypy.session.get('username'), sender+" sent a file", stamp, destination)
+		username = cherrypy.session.get('username')
+		# Lets the user know they have sent a file, embeds if possible
+		if 'image' in mime_type[0]:
+			dbManager.addMessage(username, "<img src= 'data:"+ mime_type[0] + "; base64, " + data + "'/>", stamp, destination)
+		elif 'audio' in mime_type[0]:
+			dbManager.addMessage(username, "<audio src= 'data:"+ mime_type[0] + "; base64, " + data + "'/>", stamp, destination)
+		elif 'video' in mime_type[0]:
+			dbManager.addMessage(username, "<video src= 'data:"+ mime_type[0] + "; base64, " + data + "'/>", stamp, destination)
+		else:
+			dbManager.addMessage(username, sender + " sent a file", stamp, destination)
+
+		# dbManager.addMessage(cherrypy.session.get('username'), sender+" sent a file", stamp, destination)
 		
 		raise cherrypy.HTTPRedirect('/')
 

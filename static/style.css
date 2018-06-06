@@ -8,6 +8,9 @@ html,.background{
 	margin: auto;
 	float: right;
 	width: 75%;
+	height: 75%;
+	position: relative;
+	overflow: auto;
 }
 .titletext{
 	height = 25%;
@@ -26,6 +29,7 @@ html,.background{
 	text-align: right;
 	color: #6699FF;
 }
+
 .alert{
 	padding: 20px;
 	background-color: #2196F3;
@@ -59,7 +63,7 @@ b:hover{
 	color: #00A0C6;
 }
 .chatbox{
-	position: absolute;
+	position: fixed;
 	bottom: 0;
 	right: 0;
 	color: #FFFFFF;
