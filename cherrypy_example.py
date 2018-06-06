@@ -37,6 +37,11 @@ from threading import Timer, Thread, Event
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
+""" Handles Reporting to the login server
+	Has two conitions to keep the thread running
+	'Stopped' for when the user logs out
+	'Alive' to kill the thread
+"""
 class MyThread(Thread):
 	def __init__(self, parent):
 		Thread.__init__(self)
@@ -55,8 +60,6 @@ class MyThread(Thread):
 					time.sleep(1)
 					if self.stopped:
 						return
-					print "Is alive: " + str(self.alive) + "Is stopped: " + str(self.stopped)
-
 				self.parent.reportToServer(self.username, self.password, self.ip)
 		return
 
@@ -65,6 +68,7 @@ class MyThread(Thread):
 		self.password = password
 		self.ip = ip
 
+# Excludes certain repetitive logs from printing to console
 class IgnoreURLFilter(logging.Filter):
 	def __init__(self, ignore):
 		self.ignore = 'GET /' + ignore
@@ -72,13 +76,14 @@ class IgnoreURLFilter(logging.Filter):
 	def filter(self, record):
 		return not self.ignore in record.getMessage()
 
+# Main program
 class MainApp(object):
 	# CherryPy Configuration
 	_cp_config = {'tools.encode.on': True,
 				  'tools.encode.encoding': 'utf-8',
 				  'tools.sessions.on': 'True',
 				  }
-
+	# Start reporting thread on initialisation
 	def __init__(self):
 		self.thread = MyThread(self)
 		print "__________----------THREAD CREATED---------___________"
@@ -101,20 +106,21 @@ class MainApp(object):
 		cherrypy.response.status = 404 
 		return Page
 
-	# Home Page -------------------------------------------------------------------
+	# Home Page ----------------------------------------------------------------
+	# The main face of the application
 	@cherrypy.expose
 	def index(self):
 		try:
 			if cherrypy.session.get('username') is not None:
+				# Gives the reporting thread the correct credentials
 				self.username = cherrypy.session.get('username')
 				self.password = cherrypy.session.get('password')
 				self.thread.updateDetails(cherrypy.session.get('username'), cherrypy.session.get('password'), cherrypy.session.get('ip'))
-				print "Thread Status:"
-				print self.thread.stopped
+
 				if self.thread.stopped == True:
 					self.thread.stopped = False
-			print "Thread Status:"
-			print self.thread.stopped
+
+			# Pulls a list of every online user
 			userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
 			data = {'username': cherrypy.session.get('username'), 'password': cherrypy.session.get('password'), 'enc' : 0, 'json' : 1}
 			post = urlencode(data)
@@ -127,25 +133,28 @@ class MainApp(object):
 			if cherrypy.session.get('username') is None:
 				Page = open(os.path.join('static', 'index.html'))
 				return Page
-
+			
+			# Pulls a list of all users, online or offline
 			url = urllib2.Request('http://cs302.pythonanywhere.com/listUsers')
 			response = urllib2.urlopen(url).read()
 
 			allUsersList = response.split(',')
 
+			# Adds the users to the database if they dont exist
 			dbManager.openDB("mydb")
 			for name in allUsersList:
 				dbManager.addNameToUserTable(name)
 
 			Page = open(os.path.join('static', 'main.html'))
 
-		except (KeyError, ValueError):  # There is no username
+		# If the user is not logged in, navigate them to the login screen
+		except (KeyError, ValueError):  
 			Page = open(os.path.join('static', 'index.html'))
 		return Page
 
 
 
-	# LOGGING IN AND OUT ------------------------------------------------------------
+	# LOGGING IN AND OUT -------------------------------------------------------
 	@cherrypy.expose
 	def login(self):
 		loginpath = os.path.join('static', 'login.html')
@@ -157,11 +166,14 @@ class MainApp(object):
 	def signin(self, username=None, password=None, twofac=0):
 		"""Check their name and password and send them either to the main page, or back to the main login screen."""
 		dbManager.openDB('mydb')
+		# Hash password immediately
 		hashPass = sha256(password + username)
 		hexPass = hashPass.hexdigest()
 		
+		# Check whether user has two factor authentication enabled
 		if dbManager.getTwoFacEnabled(username) is not None:
-			print "this users 2FA status is" + str(dbManager.getTwoFacEnabled(username)[0])
+			print "this users 2FA status is: " + str(dbManager.getTwoFacEnabled(username)[0])
+			cherrypy.log("this users 2FA status is: " + str(dbManager.getTwoFacEnabled(username)[0]))
 			if dbManager.getTwoFacEnabled(username)[0] == 1:
 				if int(twofac) == self.get_totp_token(base64.b32encode(username + "bas")):
 					cherrypy.log("2FA success")
@@ -172,19 +184,20 @@ class MainApp(object):
 			else:
 				pass
 
+		# Attempt to login
 		error = self.loginToServer(username, hexPass)
-
 		if (error[0] == "0"):
 			cherrypy.session['username'] = username
 			cherrypy.session['password'] = hexPass
 			raise cherrypy.HTTPRedirect('/')
 		else:
+			print "Error Logging in. Code: " + error
 			cherrypy.log("Error Logging in. Code: " + error)
 			raise cherrypy.HTTPRedirect('/login')
 
+	# Logs the current user out and expires their session
 	@cherrypy.expose
 	def signout(self):
-		"""Logs the current user out, expires their session"""
 		SignOutUsername = self.username
 		SignOutPassword = self.password
 		url = "http://cs302.pythonanywhere.com/logoff"
@@ -207,7 +220,6 @@ class MainApp(object):
 				print "Not Logged in"
 			print "Logged Off Successfully"
 
-		# raise cherrypy.HTTPRedirect('/')
 		return
 
 	def loginToServer(self, username, hexPass):
@@ -223,7 +235,8 @@ class MainApp(object):
 
 		return response.read()
 
- 	# Messaging -------------------------------------------------------------------
+ 	# Messaging ----------------------------------------------------------------
+	# --------------------------------------------------------------------------
 	@cherrypy.expose
 	def ping(self, sender):
 		return '0'
@@ -233,10 +246,11 @@ class MainApp(object):
 	def receiveMessage(self):
 		input_data = cherrypy.request.json
 		senderName = input_data['sender']
-		newMessage = input_data['message'].replace('<', "&lt;").replace('>', '&gt;')
 		stamp = input_data['stamp']
-
 		destination = input_data['destination']
+
+		# Prevents HTML injection
+		newMessage = input_data['message'].replace('<', "&lt;").replace('>', '&gt;')
 		dbManager.addMessage(senderName, newMessage, stamp, destination)
 
 		return '0'
@@ -247,17 +261,20 @@ class MainApp(object):
 		recipient = cherrypy.session.get('recipient')
 		username = cherrypy.session.get('username')
 		currentTime = str(calendar.timegm(time.gmtime()))
+		
+		# Prevents HTML injection
 		message = message.replace('<', "&lt;").replace('>', '&gt;')
 
+		# JSON encode message and metadata
 		dataToPost = {'sender': username, 'message': message, 'destination': recipient, 'stamp': currentTime}
 		url = dbManager.getUserIP(recipient)
 		port = dbManager.getUserPort(recipient)
 		url = "http://" + url + ":" + port + "/receiveMessage"
 		url = url.encode('ascii', 'ignore')
 
+		# Log the send message attempt
 		cherrypy.log("Attempted Url is: " + url)
-		cherrypy.log("Attempted Data is: ")
-		cherrypy.log(str(dataToPost))
+		cherrypy.log("Attempted to send message to: " + recipient)
 
 		post = json.dumps(dataToPost)
 		req = urllib2.Request(url)
@@ -266,10 +283,9 @@ class MainApp(object):
 
 		if response.read() == '0' and recipient != username:
 			dbManager.addMessage(username, message, currentTime, recipient)
-		# return '0'
 		raise cherrypy.HTTPRedirect('/')
 
-	# FILES ---------------------------------------------------------------------
+	# FILES --------------------------------------------------------------------
 	@cherrypy.expose
 	@cherrypy.tools.json_in()
 	def receiveFile(self):
@@ -281,11 +297,13 @@ class MainApp(object):
 		content_type = input_data['content_type']
 		stamp = input_data['stamp']
 
+		# Decode and save the base64 encoded file
 		decodedfile = encodedfile.decode('base64')
-		savefile = open(filename, 'wb')
+		savefile = open('downloads/'+filename, 'wb')
 		savefile.write(decodedfile)
 
-		dbManager.addMessage(sender, cherrypy.session.get('username'), sender+" sent a file", stamp, destination)
+		# Lets the user know they have recieved a file
+		dbManager.addMessage(sender, sender+" sent a file", stamp, destination)
 
 		return '0'
 
@@ -293,6 +311,7 @@ class MainApp(object):
 	@cherrypy.expose
 	@cherrypy.tools.json_out()
 	def sendFile(self, myFile):
+		# Takes the file from HTML and encodes it to be sent
 		data = myFile.file.read()
 		mime = MimeTypes()
 		fileurl = urllib.pathname2url(myFile.filename)
@@ -303,7 +322,6 @@ class MainApp(object):
 		data = data.encode('base64')
 
 		post = {'sender': sender, 'destination': destination, 'stamp': stamp, 'file': data, 'filename': myFile.filename, 'content_type': mime_type[0]}
-		print post
 		post = json.dumps(post)
 		url = dbManager.getUserIP(destination)
 		port = dbManager.getUserPort(destination)
@@ -314,11 +332,12 @@ class MainApp(object):
 		response = urllib2.urlopen(req, post)
 		cherrypy.log("Send File response is:" + response.read())
 
+		# Lets the user know they have received a file
 		dbManager.addMessage(cherrypy.session.get('username'), sender+" sent a file", stamp, destination)
 		
 		raise cherrypy.HTTPRedirect('/')
 
-	#Profiles---------------------------------------------------------------
+	#Profiles-------------------------------------------------------------------
 	#GET PROFILE
 	@cherrypy.expose
 	@cherrypy.tools.json_in()
@@ -326,6 +345,7 @@ class MainApp(object):
 		input_data = cherrypy.request.json
 		profile_username = input_data['profile_username']
 		sender = input_data['sender']
+		# Create default data incase the user does not have profile info
 		fullname = 'NA'
 		position = 'NA'
 		description = 'NA'
@@ -338,7 +358,7 @@ class MainApp(object):
 		if dbManager.getLastUpdated(profile_username) is None:
 			lastUpdated = 0
 		elif dbManager.getLastUpdated(profile_username)[0] != 0:
-			print "Using the Up-to-date profile"
+			# Use the most up-to-date profile information
 			lastUpdated = dbManager.getLastUpdated(profile_username)[0]
 			fullname = profileData[0][1]
 			position = profileData[0][2]
@@ -346,7 +366,6 @@ class MainApp(object):
 			location = profileData[0][4]
 			picture = profileData[0][5]
 		
-		print "Sending the response"
 		response = {'lastUpdated': lastUpdated, 'fullname': fullname, 'position': position, 'description': description, 'location': location, 'picture': picture}
 		response = json.dumps(response)
 
@@ -361,15 +380,14 @@ class MainApp(object):
 		port = ":10005/profiles/"
 		myFile = "http://" + ip + port + filename
 		user = cherrypy.session.get('username')
-		print "-----User is: " + user
-		print "fullname is: " + fullname
-		print "file name is: " + myFile
-		dbManager.addProfile(user, lastUpdated, fullname, position, description, location, myFile) 
+		# Update the saved profile info
+		dbManager.addProfile(user, lastUpdated, fullname, position, description, location, myFile)
 		raise cherrypy.HTTPRedirect('/')
 	
 	#INSPECT PROFILE
 	@cherrypy.expose
 	def inspectProfile(self, profile):
+		# Grabs the profile data
 		url = dbManager.getUserIP(profile)
 		port = dbManager.getUserPort(profile)
 		url = "http://" + url + ":" + port
@@ -380,7 +398,7 @@ class MainApp(object):
 		req.add_header('Content-Type', 'application/json')
 		response = urllib2.urlopen(req, post)
 		response = json.loads(response.read())
-			
+		
 		lastUpdated = response.get('lastUpdated')
 		fullname = response.get('fullname')
 		position = response.get('position')
@@ -388,10 +406,8 @@ class MainApp(object):
 		location = response.get('location')
 		picture = response.get('picture')
 		
-		print "--------________________-----------"
-		print picture
-		print "________----------------___________"
 
+		# Safeguard against HTML injection
 		lastUpdated = str(lastUpdated)
 		if isinstance(fullname, str):
 			fullname = str(fullname).replace('<', "&lt;").replace('>', '&gt;')
@@ -417,10 +433,12 @@ class MainApp(object):
 			except AttributeError:
 				location = "NA"
 
+		# Add profile to database
 		dbManager.addProfile(profile, lastUpdated, fullname, position, description, location, picture)
-
 		profileData = dbManager.readProfile(profile)
+
 		print "Profile data is: " + str(profileData)
+		cherrypy.log("Profile data is: " + str(profileData))
 		page = ''
 		if profile == cherrypy.session.get('username'):
 			page += "<form action='/updateProfile' method='post' enctype='multipart/form-data'><br/>"
@@ -433,7 +451,6 @@ class MainApp(object):
 			page += "<input type='submit' value='Update Profile'>"
 			page += "</form>"
 		else:
-
 			page += "Full Name: " + str(fullname) + "</br>"
 			page += "Position: " + str(position) + "</br>"
 			page += "Description: " + str(description) + "</br>"
@@ -448,17 +465,20 @@ class MainApp(object):
 				savedpic = open('profiles/'+profile, "wb")
 				savedpic.write(pic)
 				page += "Picture: <img src='/profiles/" + profile + "'>"
-			#else use a default placeholder
+			# Else use a default placeholder
 			except AttributeError as e:
 				page += "Picture: <img src='static/default.png' >"
+			except urllib2.HTTPError:
+				page += "Picture: <img src='static/default.png' >"
 		
-		page += "<a href='/'> Return </a>"	
+		page += "<br/><br/><a href='/'> Return </a>"	
 		return page
 
 	#Backend methods -------------------------------------------------------
 	@cherrypy.expose
 	def updateUserList(self, parameter):
 		username = cherrypy.session.get('username')
+		# Reports to the login server and gets a list of all online users
 		if username is not None:
 			reportUrl = urllib2.Request('http://cs302.pythonanywhere.com/report')
 			userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
@@ -472,6 +492,8 @@ class MainApp(object):
 			report = report.read()
 			dbManager.addToUserTable(jsonUserList)
 			onlineUsers = list()
+
+			# Passes online userlist to HTML
 			replyString = "<ul>"
 			for id in jsonUserList:
 				onlineUsers.append(str(jsonUserList[id][parameter]))
@@ -487,7 +509,7 @@ class MainApp(object):
 				replyString += "<li>" + "<a href=javascript:pullMessages('" + user + "');>" + user + "</a> <a href='/inspectProfile?profile="+ user +  "'> Profile" "</a></li>"
 			for i in listAllUsers:
 				if i not in onlineUsers:
-					replyString += "<li>" + "<b href=javascript:pullMessages('" + i + "');>" + i + "</b> <b href='/inspectProfile?profile="+ i +  "'> Profile" "</b></li>"
+					replyString += "<li>" + "<b href=javascript:pullMessages('" + i + "');>" + i + "</b> <b href='/inspectProfile?profile="+ i + "'> Profile" "</b></li>"
 			replyString += "</ul>"
 			return replyString
 		else:
@@ -581,7 +603,11 @@ def runMainApp():
 							}, '/profiles': {
 									'tools.staticdir.on': True,
 									'tools.staticdir.dir': "profiles"
-								}}) 		
+								}, '/downloads': {
+										'tools.staticdir.on': True,
+										'tools.staticdir.dir': "downloads"
+									}
+										}) 		
 	app.log.access_log.addFilter(IgnoreURLFilter('updateUserList'))
 	app.log.access_log.addFilter(IgnoreURLFilter('currentChat'))
 	app.log.access_log.addFilter(IgnoreURLFilter('inbox'))
