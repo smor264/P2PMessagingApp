@@ -8,7 +8,6 @@ html,.background{
 	margin: auto;
 	float: right;
 	width: 75%;
-	border: 3px solid blue;
 }
 .titletext{
 	height = 25%;
@@ -62,7 +61,7 @@ b:hover{
 .chatbox{
 	position: absolute;
 	bottom: 0;
-	right: 200;
+	right: 0;
 	color: #FFFFFF;
 }
 @media screen and (max-width: 600px) {

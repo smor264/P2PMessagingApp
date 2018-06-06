@@ -285,6 +285,8 @@ class MainApp(object):
 		savefile = open(filename, 'wb')
 		savefile.write(decodedfile)
 
+		dbManager.addMessage(sender, cherrypy.session.get('username'), sender+" sent a file", stamp, destination)
+
 		return '0'
 
 
@@ -301,6 +303,7 @@ class MainApp(object):
 		data = data.encode('base64')
 
 		post = {'sender': sender, 'destination': destination, 'stamp': stamp, 'file': data, 'filename': myFile.filename, 'content_type': mime_type[0]}
+		print post
 		post = json.dumps(post)
 		url = dbManager.getUserIP(destination)
 		port = dbManager.getUserPort(destination)
@@ -310,6 +313,9 @@ class MainApp(object):
 		req.add_header('Content-Type', 'application/json')
 		response = urllib2.urlopen(req, post)
 		cherrypy.log("Send File response is:" + response.read())
+
+		dbManager.addMessage(cherrypy.session.get('username'), sender+" sent a file", stamp, destination)
+		
 		raise cherrypy.HTTPRedirect('/')
 
 	#Profiles---------------------------------------------------------------
@@ -439,7 +445,7 @@ class MainApp(object):
 			try:
 				response = urllib2.urlopen(picture)
 				pic = response.read()
-				savedpic = open(profile, "wb")
+				savedpic = open('profiles/'+profile, "wb")
 				savedpic.write(pic)
 				page += "Picture: <img src='/profiles/" + profile + "'>"
 			#else use a default placeholder
