@@ -172,9 +172,8 @@ class MainApp(object):
 		
 		# Check whether user has two factor authentication enabled
 		if dbManager.getTwoFacEnabled(username) is not None:
-			print "this users 2FA status is: " + str(dbManager.getTwoFacEnabled(username)[0])
-			cherrypy.log("this users 2FA status is: " + str(dbManager.getTwoFacEnabled(username)[0]))
-			if dbManager.getTwoFacEnabled(username)[0] == 1:
+			cherrypy.log("This users 2FA status is: " + str(dbManager.getTwoFacEnabled(username)[0]))
+			if dbManager.getTwoFacEnabled(username)[0] == 'Y':
 				if int(twofac) == self.get_totp_token(base64.b32encode(username + "bas")):
 					cherrypy.log("2FA success")
 					pass
@@ -519,6 +518,7 @@ class MainApp(object):
 			allUsers = dbManager.getAllUsers()
 			listAllUsers = list()
 
+
 			for i in allUsers:
 				listAllUsers.append(i[0])
 
@@ -576,22 +576,20 @@ class MainApp(object):
 			username = cherrypy.session.get('username')
 			key  = base64.b32encode(username + "bas")
 			self.enable2FA()
-			print "2FA status is: " + str(dbManager.getTwoFacEnabled(username)[0])
 			return key
 
 	@cherrypy.expose
 	def enable2FA(self):
 		username = cherrypy.session.get('username')
-		# print "2FA status is: " + str(dbManager.getTwoFacEnabled(username)[0])
-		# if dbManager.getTwoFacEnabled(username)[0] == 1:
-		# 	dbManager.setTwoFacEnabled(username, 0)
-		#	print "2FA disabled"
-		# else:
-		dbManager.setTwoFacEnabled(username, 1)
-
+		if dbManager.getTwoFacEnabled(username)[0] == 'Y':
+			dbManager.setTwoFacEnabled(username, 'N')
+			print "2FA disabled"
+		else:
+			dbManager.setTwoFacEnabled(username, 'Y')
 		return '0'
 
 	# Two Factor Authentication ----------------------------------------------
+	# Key generating functions from https://stackoverflow.com/questions/8529265/google-authenticator-implementation-in-python
 	def get_hotp_token(self, secret, intervals_no):
 		key = base64.b32decode(secret, True)
 		msg = struct.pack(">Q", intervals_no)

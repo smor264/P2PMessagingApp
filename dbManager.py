@@ -9,7 +9,7 @@ def openDB(mydb):
 	cursor = db.cursor()
 	cursor.execute('''
 					CREATE TABLE IF NOT EXISTS users(name TEXT PRIMARY KEY, location TEXT,
-									IP TEXT, port TEXT, lastlogin INTEGER, twofacEnabled INTEGER)''')
+									IP TEXT, port TEXT, lastlogin INTEGER, twofac TEXT DEFAULT N)''')
 	cursor.execute('''
 					CREATE TABLE IF NOT EXISTS messages(messageID TEXT PRIMARY KEY, sender TEXT, destination TEXT, messages TEXT, stamp INTEGER)''')
 
@@ -212,8 +212,7 @@ def getTwoFacEnabled(user):
 	try:
 		db = sqlite3.connect('db/mydb')
 		cursor = db.cursor()
-		cursor.execute('''SELECT twofacEnabled FROM users WHERE name=?''', (user,))
-		output = 0
+		cursor.execute('''SELECT twofac FROM users WHERE name=?''', (user,))
 		output = cursor.fetchone()
 
 	except ValueError as e:
@@ -226,18 +225,10 @@ def getTwoFacEnabled(user):
 		return output
 
 def setTwoFacEnabled(user, value):
-	try:
-		db = sqlite3.connect('db/mydb')
-		cursor = db.cursor()
-		cursor.execute('''UPDATE users SET twofacEnabled = ? WHERE name = ?''', (value, user))
-		db.commit()
-
-	except Exception as e:
-		print "Failed to update 2FA"
-		db.rollback()
-		raise e
-	finally:
-		print "Closing database"
-		db.close()
+	db = sqlite3.connect('db/mydb')
+	cursor = db.cursor()
+	cursor.execute('''INSERT OR REPLACE INTO users(name, twofac) VALUES(?,?)''', (user, value))
+	db.commit()
+	db.close()
 
 	return '0'
