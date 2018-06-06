@@ -6,5 +6,7 @@ db/mydb
 *.log
 
 profiles/*
+!profiles/.gitkeep
 
 downloads/*
+!downloads/.gitkeep
