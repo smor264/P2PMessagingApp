@@ -38,25 +38,27 @@ from threading import Timer, Thread, Event
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
 class MyThread(Thread):
-	def __init__(self):
+	def __init__(self, parent):
 		Thread.__init__(self)
 		self.stopped = False
 		self.username = ''
 		self.password = ''
 		self.ip = ''
 		self.alive = True
+		self.parent = parent
 
 	def run(self):
 		while self.alive:
+			time.sleep(1)
 			while not self.stopped:
-				for i in range(30):
+				for i in range(15):
 					time.sleep(1)
 					if self.stopped:
 						return
 					print "Is alive: " + str(self.alive) + "Is stopped: " + str(self.stopped)
 
-				MainApp().reportToServer(self.username, self.password, self.ip)
-		
+				self.parent.reportToServer(self.username, self.password, self.ip)
+		return
 
 	def updateDetails(self, username, password, ip):
 		self.username = username
@@ -78,9 +80,17 @@ class MainApp(object):
 				  }
 
 	def __init__(self):
-		self.thread = MyThread()
+		self.thread = MyThread(self)
+		print "__________----------THREAD CREATED---------___________"
 		self.username = ''
 		self.password = ''
+		self.thread.start()
+		cherrypy.engine.subscribe('stop', self.exit_handler)
+	
+	def stop(self):
+		self.thread.alive = False
+		self.signout()		
+
 
 	# If they try somewhere we don't know, catch it here and send them to the right place.
 	@cherrypy.expose
@@ -99,10 +109,12 @@ class MainApp(object):
 				self.username = cherrypy.session.get('username')
 				self.password = cherrypy.session.get('password')
 				self.thread.updateDetails(cherrypy.session.get('username'), cherrypy.session.get('password'), cherrypy.session.get('ip'))
-				if self.thread.stopped == False:
-					self.thread.alive = True
-					# self.thread.start()
-
+				print "Thread Status:"
+				print self.thread.stopped
+				if self.thread.stopped == True:
+					self.thread.stopped = False
+			print "Thread Status:"
+			print self.thread.stopped
 			userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
 			data = {'username': cherrypy.session.get('username'), 'password': cherrypy.session.get('password'), 'enc' : 0, 'json' : 1}
 			post = urlencode(data)
@@ -179,7 +191,7 @@ class MainApp(object):
 		data = {'username' : SignOutUsername, 'password' : SignOutPassword, 'enc' : 0}
 		self.thread.stopped = True
 
-		if SignOutUsername is None:
+		if SignOutUsername == '':
 			cherrypy.log("not logged in")
 			pass
 		else:
@@ -187,14 +199,16 @@ class MainApp(object):
 			req = urllib2.Request(url, post)
 			resp = urllib2.urlopen(req).read()
 			
-			if cherrypy.session.get('username') is not None:
+			try:
 				del cherrypy.session['username']
 				del cherrypy.session['password']
 				cherrypy.lib.sessions.expire()
+			except AttributeError:
+				print "Not Logged in"
 			print "Logged Off Successfully"
 
-		raise cherrypy.HTTPRedirect('/')
-
+		# raise cherrypy.HTTPRedirect('/')
+		return
 
 	def loginToServer(self, username, hexPass):
 		url = "http://cs302.pythonanywhere.com/report"
@@ -319,7 +333,7 @@ class MainApp(object):
 			lastUpdated = 0
 		elif dbManager.getLastUpdated(profile_username)[0] != 0:
 			print "Using the Up-to-date profile"
-			lastUpdated = dbManager.getLastUpdated(profile_username)
+			lastUpdated = dbManager.getLastUpdated(profile_username)[0]
 			fullname = profileData[0][1]
 			position = profileData[0][2]
 			description = profileData[0][3]
@@ -327,7 +341,7 @@ class MainApp(object):
 			picture = profileData[0][5]
 		
 		print "Sending the response"
-		response = {'lastUpdated': lastUpdated, 'fullname': fullname, 'position': position, 'description': description, 'location': location}
+		response = {'lastUpdated': lastUpdated, 'fullname': fullname, 'position': position, 'description': description, 'location': location, 'picture': picture}
 		response = json.dumps(response)
 
 		return response
@@ -336,10 +350,10 @@ class MainApp(object):
 	@cherrypy.expose
 	def updateProfile(self, fullname, position, description, location, myFile):
 		lastUpdated = int(calendar.timegm(time.gmtime()))
-		myFile = myFile.filename
+		filename = myFile.filename
 		ip = cherrypy.session.get('ip')
 		port = ":10005/profiles/"
-		myFile = ip + port + myFile
+		myFile = "http://" + ip + port + filename
 		user = cherrypy.session.get('username')
 		print "-----User is: " + user
 		print "fullname is: " + fullname
@@ -367,6 +381,10 @@ class MainApp(object):
 		description =  response.get('description')
 		location = response.get('location')
 		picture = response.get('picture')
+		
+		print "--------________________-----------"
+		print picture
+		print "________----------------___________"
 
 		lastUpdated = str(lastUpdated)
 		if isinstance(fullname, str):
@@ -376,11 +394,22 @@ class MainApp(object):
 			location = str(location).replace('<', "&lt;").replace('>', '&gt;')
 
 		elif isinstance(fullname, unicode):
-			fullname = fullname.encode('ascii', 'ignore').replace('<', "&lt;").replace('>', '&gt;')
-			position = position.encode('ascii', 'ignore').replace('<', "&lt;").replace('>', '&gt;')	
-			description = description.encode('ascii', 'ignore').replace('<', "&lt;").replace('>', '&gt;')
-			location = location.encode('ascii', 'ignore').replace('<', "&lt;").replace('>', '&gt;')
-
+			try:
+				fullname = fullname.encode('ascii', 'ignore').replace('<', "&lt;").replace('>', '&gt;')
+			except AttributeError:
+				fullname = "NA"
+			try:
+				position = position.encode('ascii', 'ignore').replace('<', "&lt;").replace('>', '&gt;')
+			except AttributeError:
+				position = "NA"
+			try:			
+				description = description.encode('ascii', 'ignore').replace('<', "&lt;").replace('>', '&gt;')
+			except AttributeError:
+				description = "NA"
+			try:
+				location = location.encode('ascii', 'ignore').replace('<', "&lt;").replace('>', '&gt;')
+			except AttributeError:
+				location = "NA"
 
 		dbManager.addProfile(profile, lastUpdated, fullname, position, description, location, picture)
 
@@ -404,17 +433,20 @@ class MainApp(object):
 			page += "Description: " + str(description) + "</br>"
 			page += "Location: " + str(location) + "</br>"
 
-		# Save a local copy of the profile picture
-		try:
-			response = urllib2.urlopen(picture)
-			pic = response.read()
-			savedpic = open("profiles/" + profile, "wb")
-			savedpic.write(pic)
-			page += "Picture: <img src='/profiles/" + profile + "'>"
-		#else use a default placeholder
-		except AttributeError as e:
-			page += "Picture: <img src='static/default.png' >"
-			
+
+		if picture != "NA":
+			# Save a local copy of the profile picture
+			try:
+				response = urllib2.urlopen(picture)
+				pic = response.read()
+				savedpic = open(profile, "wb")
+				savedpic.write(pic)
+				page += "Picture: <img src='/profiles/" + profile + "'>"
+			#else use a default placeholder
+			except AttributeError as e:
+				page += "Picture: <img src='static/default.png' >"
+		
+		page += "<a href='/'> Return </a>"	
 		return page
 
 	#Backend methods -------------------------------------------------------
@@ -456,14 +488,14 @@ class MainApp(object):
 			return "Not logged in"
 
 	def reportToServer(self, username, password, ip):
-		if username is not None:
+		try:
 			reportUrl = urllib2.Request('http://cs302.pythonanywhere.com/report')
 			data = {'username': username, 'password': password, 'enc': 0,
 					'json': 1, 'location': 0, 'port': 10005, 'ip': ip}
 			post = urlencode(data)
 			report = urllib2.urlopen(reportUrl, post)
 			print "Report Complete, Response: " + report.read()
-		else:
+		except urllib2.URLError:
 			print "Failed to Report"
 		return
 
@@ -528,8 +560,9 @@ class MainApp(object):
 
 	# Signout on application close
 	def exit_handler(self):
-		self.signout()
 		self.thread.alive = False
+		print "Thread Killed Successfully"
+		self.signout()
 		print "Signing Off"
 
 def runMainApp():
@@ -568,7 +601,6 @@ def runMainApp():
 	# And stop doing anything else. Let the web server take over.
 	cherrypy.engine.block()
 
-	atexit.register(server.signout())
 
 # Run the function to start everything
 runMainApp()
