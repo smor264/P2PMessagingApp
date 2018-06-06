@@ -44,14 +44,18 @@ class MyThread(Thread):
 		self.username = ''
 		self.password = ''
 		self.ip = ''
+		self.alive = True
 
 	def run(self):
-		while not self.stopped:
-			for i in range(30):
-				time.sleep(1)
-				print "Thread waiting...."
+		while self.alive:
+			while not self.stopped:
+				for i in range(30):
+					time.sleep(1)
+					if self.stopped:
+						return
+					print "Is alive: " + str(self.alive) + "Is stopped: " + str(self.stopped)
 
-			MainApp().reportToServer(self.username, self.password, self.ip)
+				MainApp().reportToServer(self.username, self.password, self.ip)
 		
 
 	def updateDetails(self, username, password, ip):
@@ -75,6 +79,8 @@ class MainApp(object):
 
 	def __init__(self):
 		self.thread = MyThread()
+		self.username = ''
+		self.password = ''
 
 	# If they try somewhere we don't know, catch it here and send them to the right place.
 	@cherrypy.expose
@@ -90,21 +96,21 @@ class MainApp(object):
 	def index(self):
 		try:
 			if cherrypy.session.get('username') is not None:
+				self.username = cherrypy.session.get('username')
+				self.password = cherrypy.session.get('password')
 				self.thread.updateDetails(cherrypy.session.get('username'), cherrypy.session.get('password'), cherrypy.session.get('ip'))
-				# self.thread.run()
+				if self.thread.stopped == False:
+					self.thread.alive = True
+					# self.thread.start()
 
 			userListUrl = urllib2.Request('http://cs302.pythonanywhere.com/getList')
 			data = {'username': cherrypy.session.get('username'), 'password': cherrypy.session.get('password'), 'enc' : 0, 'json' : 1}
 			post = urlencode(data)
 			response = urllib2.urlopen(userListUrl, post)
 			resp = response.read()
-			# print resp
 			jsonUserList = json.loads(resp)
-			# print resp
 
 			dbManager.openDB("mydb")
-			#dbManager.addToUserTable(jsonUserList)
-			#dbManager.readUserTable("mydb")
 			
 			if cherrypy.session.get('username') is None:
 				Page = open(os.path.join('static', 'index.html'))
@@ -115,8 +121,6 @@ class MainApp(object):
 
 			allUsersList = response.split(',')
 
-			
-			# print allUsersList
 			dbManager.openDB("mydb")
 			for name in allUsersList:
 				dbManager.addNameToUserTable(name)
@@ -167,10 +171,10 @@ class MainApp(object):
 			raise cherrypy.HTTPRedirect('/login')
 
 	@cherrypy.expose
-	def signout(self, thread):
+	def signout(self):
 		"""Logs the current user out, expires their session"""
-		SignOutUsername = cherrypy.session.get('username')
-		SignOutPassword = cherrypy.session.get('password')
+		SignOutUsername = self.username
+		SignOutPassword = self.password
 		url = "http://cs302.pythonanywhere.com/logoff"
 		data = {'username' : SignOutUsername, 'password' : SignOutPassword, 'enc' : 0}
 		self.thread.stopped = True
@@ -182,10 +186,11 @@ class MainApp(object):
 			post = urlencode(data)
 			req = urllib2.Request(url, post)
 			resp = urllib2.urlopen(req).read()
-
-			del cherrypy.session['username']
-			del cherrypy.session['password']
-			cherrypy.lib.sessions.expire()
+			
+			if cherrypy.session.get('username') is not None:
+				del cherrypy.session['username']
+				del cherrypy.session['password']
+				cherrypy.lib.sessions.expire()
 			print "Logged Off Successfully"
 
 		raise cherrypy.HTTPRedirect('/')
@@ -214,7 +219,7 @@ class MainApp(object):
 	def receiveMessage(self):
 		input_data = cherrypy.request.json
 		senderName = input_data['sender']
-		newMessage = input_data['message']
+		newMessage = input_data['message'].replace('<', "&lt;").replace('>', '&gt;')
 		stamp = input_data['stamp']
 
 		destination = input_data['destination']
@@ -228,6 +233,7 @@ class MainApp(object):
 		recipient = cherrypy.session.get('recipient')
 		username = cherrypy.session.get('username')
 		currentTime = str(calendar.timegm(time.gmtime()))
+		message = message.replace('<', "&lt;").replace('>', '&gt;')
 
 		dataToPost = {'sender': username, 'message': message, 'destination': recipient, 'stamp': currentTime}
 		url = dbManager.getUserIP(recipient)
@@ -297,7 +303,6 @@ class MainApp(object):
 	@cherrypy.expose
 	@cherrypy.tools.json_in()
 	def getProfile(self):
-		print "________--------_____ We made it to getProfile"
 		input_data = cherrypy.request.json
 		profile_username = input_data['profile_username']
 		sender = input_data['sender']
@@ -309,8 +314,6 @@ class MainApp(object):
 		lastUpdated = 0
 
 		profileData = dbManager.readProfile(profile_username)
-		print "The profile data for " + profile_username + " is: " + str(profileData)
-		print "The Last Updated field is" + str(dbManager.getLastUpdated(profile_username))
 		
 		if dbManager.getLastUpdated(profile_username) is None:
 			lastUpdated = 0
@@ -333,9 +336,12 @@ class MainApp(object):
 	@cherrypy.expose
 	def updateProfile(self, fullname, position, description, location, myFile):
 		lastUpdated = int(calendar.timegm(time.gmtime()))
-		myFile = myFile.read()
+		myFile = myFile.filename
+		ip = cherrypy.session.get('ip')
+		port = ":10005/profiles/"
+		myFile = ip + port + myFile
 		user = cherrypy.session.get('username')
-		print "-------------------------------------User is: " + user
+		print "-----User is: " + user
 		print "fullname is: " + fullname
 		print "file name is: " + myFile
 		dbManager.addProfile(user, lastUpdated, fullname, position, description, location, myFile) 
@@ -362,15 +368,19 @@ class MainApp(object):
 		location = response.get('location')
 		picture = response.get('picture')
 
+		lastUpdated = str(lastUpdated)
 		if isinstance(fullname, str):
-			lastUpdated = str(lastUpdated)
-			fullname = str(fullname)
-			position = str(position)
-			description =  str(description)
-			location = str(location)
-			picture = str(picture)
+			fullname = str(fullname).replace('<', "&lt;").replace('>', '&gt;')
+			position = str(position).replace('<', "&lt;").replace('>', '&gt;')
+			description =  str(description).replace('<', "&lt;").replace('>', '&gt;')
+			location = str(location).replace('<', "&lt;").replace('>', '&gt;')
+
 		elif isinstance(fullname, unicode):
-			lastUpdated = 
+			fullname = fullname.encode('ascii', 'ignore').replace('<', "&lt;").replace('>', '&gt;')
+			position = position.encode('ascii', 'ignore').replace('<', "&lt;").replace('>', '&gt;')	
+			description = description.encode('ascii', 'ignore').replace('<', "&lt;").replace('>', '&gt;')
+			location = location.encode('ascii', 'ignore').replace('<', "&lt;").replace('>', '&gt;')
+
 
 		dbManager.addProfile(profile, lastUpdated, fullname, position, description, location, picture)
 
@@ -519,6 +529,7 @@ class MainApp(object):
 	# Signout on application close
 	def exit_handler(self):
 		self.signout()
+		self.thread.alive = False
 		print "Signing Off"
 
 def runMainApp():
