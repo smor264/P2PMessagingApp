@@ -5,6 +5,6 @@ db/mydb
 
 *.log
 
-profiles/
+profiles/*
 
-downloads/
+downloads/*
