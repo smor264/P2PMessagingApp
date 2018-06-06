@@ -1,0 +1,75 @@
+<html>
+<head>
+	<link href="static/style.css" rel="stylesheet">
+	<script src="jquery-3.3.1.min.js"></script>
+</head>
+<header>
+	<script>
+	var currentRecipient = "None"
+	function httpGetAsync()
+	{
+		url = "/updateUserList?parameter=username";
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.onreadystatechange = function() {
+			if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+				console.log(xmlhttp.responseText);
+				document.getElementById("username").innerHTML = xmlhttp.responseText;
+				}	
+		};
+	xmlhttp.open("GET", url, true);
+	xmlhttp.send();
+	ptc(currentRecipient);
+	pullMessages(currentRecipient);
+	};
+	
+	function pullMessages(sender)
+	{
+		currentRecipient = sender;
+		url = "/inbox?sender="+sender;
+		var xmlhttp = new XMLHttpRequest();
+		xmlhttp.onreadystatechange = function() {
+			if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+				console.log(xmlhttp.responseText);
+				document.getElementById("main").innerHTML = xmlhttp.responseText;
+				}	
+		};
+	xmlhttp.open("GET", url, true);
+	xmlhttp.send();
+	};
+	
+	window.onload = httpGetAsync;
+	setInterval(httpGetAsync,10000);
+	//var refreshMessages = pullMessages(currentRecipient);
+	//setInterval(refreshMessages,5000);
+	//var foofunc = foo;
+	//setInterval(foofunc,500);
+	function ptc(thing) {
+		console.log(thing);
+	}
+	</script>
+<title>Welcome!</title>
+</header>
+	<body>
+		<div class= "titletext">
+			<h1> Main </h1>
+		</div>
+		<div class= "bodytext">
+			Successfully logged in! <br/><br/>
+			Click on a user to start chatting <br/>
+			<p id="main"></p>
+			
+		</div>
+		<div class= "chatbox">
+			<form id="submitMessage" action="/sendMessage" method="post">
+			<textarea rows='5' cols='100' name="message"></textarea>
+			<input type="submit" value="Send">
+		</div>
+		<div class= "sidebar">
+			Current online users:
+			<aside id="username"></aside>
+		</div>
+	</body>
+	<footer>
+
+	</footer>
+</html>	
